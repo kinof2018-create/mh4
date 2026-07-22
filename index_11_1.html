@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>시설관리 유지보수 대시보드 · (주)삼화당피앤티</title>
+
+<!-- Pretendard (한글 폴백) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@1.3.9/dist/web/static/pretendard.css" />
+<!-- SheetJS -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<style>
+:root{
+  /* Samsung Blue */
+  --color-primary-300:#4D67C3;
+  --color-primary-400:#2645B0;
+  --color-primary-500:#1428A0;
+  --color-primary-600:#0F1E78;
+  --color-primary-700:#0A1758;
+
+  --color-secondary-500:#2AA39B;
+
+  /* Semantic (라이트 톤) */
+  --success-bg:#E4F7EC; --success-fg:#0E9F5E;
+  --warning-bg:#FFF3DE; --warning-fg:#B5730A;
+  --error-bg:#FDE7EC;   --error-fg:#D6294B;
+  --info-bg:#E6EFFF;    --info-fg:#1B63D6;
+
+  /* Surface (밝은 캔버스) */
+  --bg-base:#F4F5F8;
+  --bg-subtle:#EEF0F5;
+  --bg-elevated:#FFFFFF;
+
+  /* Text (진한 글자 = 높은 대비) */
+  --text-primary:#0A0A0F;
+  --text-secondary:#2A2E3A;
+  --text-tertiary:#5A5F6E;
+
+  --border-default:#E1E4EC;
+  --border-subtle:#EDEFF4;
+  --border-strong:#C4C9D6;
+
+  --radius-md:8px; --radius-lg:12px; --radius-xl:20px; --radius-full:9999px;
+
+  --shadow-sm:0 1px 2px rgba(16,24,40,0.06);
+  --shadow-md:0 6px 18px rgba(16,24,40,0.08);
+  --shadow-card:0 14px 28px rgba(20,40,160,0.18);
+
+  --space-sm:8px; --space-md:16px; --space-lg:24px; --space-xl:32px;
+
+  --font:SamsungOne,'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;
+}
+
+/* 루트 글자 크기: 기본 16px → 21px (약 30% 확대). 모든 rem 이 비례 확대됨 */
+html{ font-size:21px; }
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:var(--font);
+  background:
+    radial-gradient(1200px 600px at 12% -10%, rgba(20,40,160,0.10), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(42,163,155,0.08), transparent 55%),
+    var(--bg-base);
+  color:var(--text-primary);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+
+.wrap{max-width:1320px;margin:0 auto;padding:28px 24px 64px;}
+
+/* ── Header ────────────────────────────────── */
+.topbar{
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  margin-bottom:28px;
+}
+.brand{display:flex;align-items:center;gap:14px;}
+.brand .logo{
+  width:46px;height:46px;border-radius:12px;flex:none;
+  background:linear-gradient(135deg,var(--color-primary-600),var(--color-primary-500));
+  box-shadow:var(--shadow-card);
+  display:grid;place-items:center;font-size:1.375rem;
+}
+.brand h1{margin:0;font-size:1.375rem;font-weight:700;letter-spacing:-0.01em;line-height:1.15;}
+.brand .sub{font-size:0.75rem;font-weight:600;color:var(--text-tertiary);margin-top:3px;letter-spacing:0.02em;}
+
+.topbar .controls{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.status-chip{
+  font-size:0.6875rem;font-weight:700;letter-spacing:0.02em;
+  padding:7px 12px;border-radius:var(--radius-full);
+  background:var(--bg-elevated);color:var(--text-tertiary);
+  display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border-default);
+  box-shadow:var(--shadow-sm);
+}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--text-tertiary);}
+.dot.live{background:var(--success-fg);box-shadow:0 0 0 3px rgba(14,159,94,0.18);}
+.dot.err{background:var(--error-fg);box-shadow:0 0 0 3px rgba(214,41,75,0.18);}
+
+.sel{
+  background:var(--bg-elevated);color:var(--text-primary);border:1px solid var(--border-default);
+  border-radius:var(--radius-full);padding:9px 14px;font:600 0.75rem/1 var(--font);cursor:pointer;
+  appearance:none;-webkit-appearance:none;box-shadow:var(--shadow-sm);
+  background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235A5F6E' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 13px center;padding-right:30px;
+}
+.sel:hover{border-color:var(--border-strong);}
+.sel:focus{outline:none;border-color:var(--color-primary-400);}
+.btn{
+  background:var(--color-primary-500);color:#fff;border:0;
+  border-radius:var(--radius-full);padding:9px 16px;font:600 0.75rem/1 var(--font);cursor:pointer;
+  transition:background .2s;
+}
+.btn:hover{background:var(--color-primary-400);}
+
+/* ── File loader (file:// mode) ───────────── */
+.loader{
+  display:none;margin-bottom:24px;padding:22px;
+  border:1.5px dashed var(--border-strong);border-radius:var(--radius-lg);
+  background:var(--bg-elevated);text-align:center;box-shadow:var(--shadow-sm);
+}
+.loader.show{display:block;}
+.loader.drag{border-color:var(--color-primary-400);background:#EEF2FF;}
+.loader h3{margin:0 0 6px;font-size:1rem;font-weight:700;color:var(--text-primary);}
+.loader p{margin:0 0 14px;font-size:0.8125rem;color:var(--text-tertiary);}
+.btn-pay{background:var(--color-primary-500);color:#fff;font-weight:700;padding:12px 24px;border-radius:var(--radius-full);border:0;cursor:pointer;font-size:0.875rem;box-shadow:var(--shadow-card);}
+.btn-pay:hover{background:var(--color-primary-400);}
+
+/* ── Alert ────────────────────────────────── */
+.alert{
+  display:none;margin-bottom:24px;padding:16px 18px;border-radius:var(--radius-lg);
+  background:var(--warning-bg);color:var(--warning-fg);border:1px solid #F0D28A;
+  font-size:0.875rem;font-weight:600;
+}
+.alert.show{display:block;}
+
+/* ── KPI cards ────────────────────────────── */
+.kpi-grid{
+  display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px;
+}
+.kpi{
+  background:var(--bg-elevated);border:1px solid var(--border-default);
+  border-radius:var(--radius-lg);padding:18px;position:relative;overflow:hidden;
+  box-shadow:var(--shadow-md);
+}
+.kpi::before{
+  content:"";position:absolute;inset:0 auto 0 0;width:3px;
+  background:var(--color-primary-500);opacity:.9;
+}
+.kpi.accent-warn::before{background:var(--warning-fg);}
+.kpi.accent-info::before{background:var(--info-fg);}
+.kpi.accent-teal::before{background:var(--color-secondary-500);}
+.kpi .label{font-size:0.6875rem;font-weight:700;letter-spacing:0.04em;color:var(--text-tertiary);text-transform:uppercase;}
+.kpi .val{font-size:1.75rem;font-weight:800;margin-top:10px;letter-spacing:-0.01em;font-variant-numeric:tabular-nums;line-height:1.1;color:var(--text-primary);}
+.kpi .foot{font-size:0.6875rem;font-weight:600;color:var(--text-tertiary);margin-top:6px;}
+.kpi .foot b{color:var(--warning-fg);font-weight:800;}
+
+/* ── 클릭 가능한 미완료 카드 ── */
+.kpi-clickable{cursor:pointer;transition:transform .12s, box-shadow .12s;}
+.kpi-clickable:hover{transform:translateY(-2px);box-shadow:var(--shadow-card);}
+.kpi-clickable::after{
+  content:"클릭 ▸";position:absolute;top:12px;right:14px;
+  font-size:0.5625rem;font-weight:700;color:var(--warning-fg);
+  background:var(--warning-bg);padding:3px 8px;border-radius:var(--radius-full);opacity:.9;
+}
+
+/* ── 미완료 상세 모달 ── */
+.modal-overlay{
+  display:none;position:fixed;inset:0;z-index:1000;
+  background:rgba(16,24,40,0.45);backdrop-filter:blur(2px);
+}
+.modal-overlay.show{display:block;}
+.modal{
+  position:fixed;top:60px;left:50%;transform:translateX(-50%);
+  background:var(--bg-elevated);border-radius:var(--radius-xl);
+  width:760px;max-width:calc(100vw - 32px);
+  height:640px;max-height:calc(100vh - 80px);min-width:340px;min-height:240px;
+  box-shadow:0 24px 60px rgba(16,24,40,0.30);
+  border:1px solid var(--border-default);overflow:hidden;
+  display:flex;flex-direction:column;
+  resize:both;               /* 우측 하단 모서리로 크기 조절 */
+}
+.modal-head{
+  display:flex;align-items:center;gap:12px;padding:20px 24px;
+  border-bottom:1px solid var(--border-default);background:var(--warning-bg);
+  cursor:move;user-select:none;flex:none;    /* 헤더를 잡고 이동 */
+}
+.modal-head h2{margin:0;font-size:1.125rem;font-weight:800;color:var(--warning-fg);}
+.modal-head .cnt{font-size:0.75rem;font-weight:700;color:var(--warning-fg);background:#fff;padding:4px 10px;border-radius:var(--radius-full);}
+.modal-head .drag-hint{font-size:0.625rem;font-weight:600;color:var(--warning-fg);opacity:.7;margin-left:4px;}
+.modal-close{margin-left:auto;background:transparent;border:0;font-size:1.25rem;cursor:pointer;color:var(--text-tertiary);line-height:1;padding:4px 8px;border-radius:8px;}
+.modal-close:hover{background:rgba(0,0,0,0.06);color:var(--text-primary);}
+.modal-body{padding:16px 24px 24px;overflow-y:auto;flex:1 1 auto;}
+/* 리사이즈 손잡이 시각 표시 */
+.modal::-webkit-resizer{background:transparent;}
+.resize-badge{
+  position:absolute;right:6px;bottom:4px;font-size:0.625rem;color:var(--text-tertiary);
+  pointer-events:none;opacity:.7;
+}
+
+.oi-card{
+  border:1px solid var(--border-default);border-radius:var(--radius-lg);
+  padding:16px;margin-bottom:14px;background:#FFFDF8;
+}
+.oi-card:last-child{margin-bottom:0;}
+.oi-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+.oi-top .oi-target{font-size:0.9375rem;font-weight:800;color:var(--text-primary);}
+.oi-top .oi-mgmt{font-size:0.6875rem;font-weight:700;color:var(--text-tertiary);background:var(--bg-subtle);padding:3px 8px;border-radius:var(--radius-full);}
+.oi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 20px;margin-bottom:14px;}
+.oi-field{font-size:0.8125rem;line-height:1.5;}
+.oi-field .k{color:var(--text-tertiary);font-weight:600;margin-right:6px;}
+.oi-field .v{color:var(--text-secondary);font-weight:600;}
+.oi-memo label{display:block;font-size:0.75rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;}
+.oi-memo textarea{
+  width:100%;box-sizing:border-box;min-height:60px;resize:vertical;
+  border:1px solid var(--border-default);border-radius:var(--radius-md);
+  padding:10px 12px;font:400 0.8125rem/1.5 var(--font);color:var(--text-primary);background:#fff;
+}
+.oi-memo textarea:focus{outline:none;border-color:var(--color-primary-400);}
+.oi-memo .saved{font-size:0.6875rem;color:var(--success-fg);font-weight:700;margin-top:4px;height:14px;}
+.modal-empty{padding:32px;text-align:center;color:var(--text-tertiary);font-size:0.875rem;}
+
+@media (max-width:560px){
+  .oi-grid{grid-template-columns:1fr;}
+}
+
+/* ── Chart grid ───────────────────────────── */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.panel{
+  background:var(--bg-elevated);border:1px solid var(--border-default);
+  border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow-md);
+}
+.panel h2{margin:0 0 4px;font-size:1.0625rem;font-weight:800;letter-spacing:-0.005em;color:var(--text-primary);}
+.panel .q{font-size:0.75rem;color:var(--text-tertiary);margin:0 0 16px;font-weight:500;}
+.chart-box{position:relative;height:320px;}
+
+/* ── Table ────────────────────────────────── */
+.table-panel{margin-top:16px;}
+.table-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
+.input{
+  background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-full);
+  padding:10px 16px;color:var(--text-primary);font:400 0.8125rem/1.3 var(--font);flex:1;min-width:180px;
+  box-shadow:var(--shadow-sm);
+}
+.input::placeholder{color:var(--text-tertiary);}
+.input:focus{outline:none;border-color:var(--color-primary-400);background:#fff;}
+
+.tbl-scroll{overflow-x:auto;border-radius:var(--radius-md);border:1px solid var(--border-default);}
+table{width:100%;border-collapse:collapse;font-size:0.7812rem;min-width:900px;background:var(--bg-elevated);}
+thead th{
+  position:sticky;top:0;background:var(--bg-subtle);color:var(--text-secondary);
+  font-weight:700;text-align:left;padding:12px 14px;white-space:nowrap;
+  border-bottom:2px solid var(--border-default);font-size:0.7188rem;letter-spacing:0.02em;
+}
+tbody td{padding:12px 14px;border-bottom:1px solid var(--border-subtle);color:var(--text-secondary);white-space:nowrap;}
+tbody tr:hover{background:var(--bg-subtle);}
+tbody tr.flag{background:#FFF6E4;}
+tbody tr.flag:hover{background:#FFEFCE;}
+td.num{font-variant-numeric:tabular-nums;text-align:right;}
+
+.tag{padding:4px 10px;border-radius:var(--radius-full);font:700 0.6875rem/1.4 var(--font);letter-spacing:0.02em;display:inline-block;}
+.tag-done{background:var(--success-bg);color:var(--success-fg);}
+.tag-temp{background:var(--warning-bg);color:var(--warning-fg);}
+.tag-out{background:var(--info-bg);color:var(--info-fg);}
+.tag-self{background:#EDEFF4;color:var(--text-secondary);}
+
+.empty{padding:40px;text-align:center;color:var(--text-tertiary);font-size:0.8125rem;}
+.foot-note{margin-top:24px;font-size:0.6875rem;color:var(--text-tertiary);text-align:center;line-height:1.7;}
+.foot-note code{background:var(--bg-subtle);border:1px solid var(--border-default);border-radius:4px;padding:1px 6px;color:var(--text-secondary);}
+
+@media (max-width:1180px){
+  .kpi-grid{grid-template-columns:repeat(3,1fr);}
+}
+@media (max-width:900px){
+  .kpi-grid{grid-template-columns:repeat(2,1fr);}
+  .grid2{grid-template-columns:1fr;}
+}
+@media (max-width:560px){
+  html{ font-size:19px; }
+  .kpi-grid{grid-template-columns:1fr;}
+  .wrap{padding:20px 14px 48px;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- [1] Header -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">🏢</div>
+      <div>
+        <h1>시설관리 유지보수 대시보드</h1>
+        <div class="sub">(주)삼화당피앤티 · SAMHWADANG P&T</div>
+      </div>
+    </div>
+    <div class="controls">
+      <select id="filterMonth" class="sel"><option value="">전체 기간</option></select>
+      <select id="filterZone" class="sel"><option value="">전체 구역</option></select>
+      <select id="filterStatus" class="sel"><option value="">전체 상태</option></select>
+      <select id="filterVendor" class="sel"><option value="">전체 처리주체</option></select>
+      <span id="statusChip" class="status-chip"><span id="statusDot" class="dot"></span><span id="statusText">로딩 중…</span></span>
+    </div>
+  </header>
+
+  <!-- File loader (file:// only) -->
+  <div id="loader" class="loader">
+    <h3>📂 data.xlsx 파일을 지정하세요</h3>
+    <p id="loaderDesc">아래 <b>실시간 자동 연동</b> 버튼을 눌러 data.xlsx 를 한 번 지정하면, 이후 엑셀을 저장할 때마다 대시보드가 자동으로 갱신됩니다.<br>(자동 연동은 Chrome·Edge 브라우저에서 지원됩니다. 미지원 시 "파일 선택"으로 불러오세요.)</p>
+    <button class="btn-pay" id="watchBtn">🔄 실시간 자동 연동 시작</button>
+    <button class="btn" id="pickBtn" style="margin-left:8px">파일 선택(1회)</button>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" />
+  </div>
+
+  <!-- Alert -->
+  <div id="alert" class="alert"></div>
+
+  <!-- [2] KPI -->
+  <section class="kpi-grid" id="kpiGrid">
+    <div class="kpi"><div class="label">총 유지보수 건수</div><div class="val" id="kpiCount">–</div><div class="foot" id="kpiCountFoot">전체 이력</div></div>
+    <div class="kpi"><div class="label">총 소요비용</div><div class="val" id="kpiCost">–</div><div class="foot" id="kpiCostFoot">누적 합계</div></div>
+    <div class="kpi accent-teal"><div class="label">건당 평균비용</div><div class="val" id="kpiAvg">–</div><div class="foot">총비용 ÷ 총건수</div></div>
+    <div class="kpi accent-warn kpi-clickable" id="kpiOpenCard" title="클릭하면 미완료 항목 상세와 메모를 볼 수 있습니다"><div class="label">미완료 건수</div><div class="val" id="kpiOpen">–</div><div class="foot" id="kpiOpenFoot">완료 외 상태</div></div>
+    <div class="kpi accent-info"><div class="label">외주 비용 비중</div><div class="val" id="kpiOut">–</div><div class="foot" id="kpiOutFoot">외주 ÷ 총비용</div></div>
+  </section>
+
+  <!-- [3][4] -->
+  <section class="grid2">
+    <div class="panel">
+      <h2>구역별 유지보수 비용</h2>
+      <p class="q">어느 층·구역에 비용이 가장 많이 드는가?</p>
+      <div class="chart-box"><canvas id="chartZone"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>작업 구분별 건수</h2>
+      <p class="q">어떤 유형의 작업이 많은가? (고장교체·수리·부품교체·보수)</p>
+      <div class="chart-box"><canvas id="chartType"></canvas></div>
+    </div>
+  </section>
+
+  <!-- [5][6] -->
+  <section class="grid2">
+    <div class="panel">
+      <h2>월별 발생 추이</h2>
+      <p class="q">유지보수는 언제 몰리는가?</p>
+      <div class="chart-box"><canvas id="chartTrend"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>반복 원인 TOP 5</h2>
+      <p class="q">근본적으로 반복되는 고장 원인은?</p>
+      <div class="chart-box"><canvas id="chartCause"></canvas></div>
+    </div>
+  </section>
+
+  <!-- [7] Table -->
+  <section class="panel table-panel">
+    <h2>상세 유지보수 이력</h2>
+    <p class="q">미완료·임시조치 건은 강조 표시됩니다. 검색·필터로 원하는 이력을 찾아보세요.</p>
+    <div class="table-tools">
+      <input type="text" id="search" class="input" placeholder="🔍 설비명 · 현상 · 원인 · 작업자 검색…" />
+      <span class="status-chip"><span id="rowCount">0</span>건 표시</span>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>일자</th><th>구분</th><th>구역</th><th>대상설비명</th><th>관리번호</th>
+            <th>발생현상</th><th>원인</th><th>조치내용</th>
+            <th style="text-align:right">소요비용</th><th>처리주체</th><th>작업자</th><th>진행상태</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="foot-note">
+    데이터 원본: <code>./data.xlsx</code> · SheetJS 파싱 · Chart.js 시각화<br/>
+    http/https 모드에서는 60초마다 자동 갱신됩니다. Design: Samsung Pay style system.
+  </div>
+
+</div>
+
+<!-- ── 미완료 상세 모달 ── -->
+<div class="modal-overlay" id="openModal">
+  <div class="modal" id="openModalBox" role="dialog" aria-modal="true">
+    <div class="modal-head" id="openModalHead">
+      <h2>⚠ 미완료 항목 상세</h2>
+      <span class="cnt" id="modalCnt">0건</span>
+      <span class="drag-hint">⠿ 제목을 끌어 이동</span>
+      <button class="modal-close" id="modalClose" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <span class="resize-badge">↘ 모서리로 크기 조절</span>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════
+   데이터 경로 (상대경로 고정 — 전체 URL 금지)
+═══════════════════════════════════════════ */
+const DATA_URL = './data.xlsx';
+const REFRESH_MS = 60000;
+const isFile = location.protocol==='file:';
+
+/* ── 팔레트 ── */
+const PALETTE = ['#1428A0','#2645B0','#4D67C3','#2AA39B','#1B63D6','#8093D5','#0E9F5E','#E08A00','#D6294B','#7C8AC7'];
+const GRID = 'rgba(16,24,40,0.08)';
+const TICK = '#3A3F4D';
+const LEGEND = '#2A2E3A';
+Chart.defaults.font.family = "SamsungOne, Pretendard, sans-serif";
+Chart.defaults.font.size = 14;           // 기본 13→14 (약 30% 확대 반영)
+Chart.defaults.color = TICK;
+
+let RAW = [];            // 정규화된 전체 행
+let charts = {};         // Chart 인스턴스
+let refreshTimer = null;
+
+/* ═══════════════ 유틸 ═══════════════ */
+const $ = id => document.getElementById(id);
+const won = n => '₩' + Math.round(n||0).toLocaleString('ko-KR');
+
+function parseCost(v){
+  if(v==null) return 0;
+  if(typeof v === 'number') return v;
+  const n = String(v).replace(/[₩,\s]/g,'').replace(/[^\d.-]/g,'');
+  return n === '' ? 0 : (parseFloat(n)||0);
+}
+// 날짜: "26/2/3", "2026-02-03", Excel serial 등 → {ym:'2026-02', label:'26/02', d:Date}
+function parseDate(v){
+  if(v==null||v==='') return null;
+  // Excel serial number
+  if(typeof v === 'number' && v > 1000){
+    const d = new Date(Math.round((v-25569)*86400*1000));
+    return buildDate(d);
+  }
+  const s = String(v).trim();
+  let m = s.match(/^(\d{2,4})[.\/\-\s]+(\d{1,2})[.\/\-\s]+(\d{1,2})/);
+  if(m){
+    let y = parseInt(m[1],10); if(y<100) y += 2000;
+    return buildDate(new Date(y, parseInt(m[2],10)-1, parseInt(m[3],10)));
+  }
+  const d = new Date(s);
+  return isNaN(d) ? null : buildDate(d);
+}
+function buildDate(d){
+  const y=d.getFullYear(), mo=String(d.getMonth()+1).padStart(2,'0');
+  return { ym:`${y}-${mo}`, label:`${String(y).slice(2)}/${mo}`, d };
+}
+// 표·모달의 "일자" 표시용 문자열.
+// 엑셀 날짜 서식 셀은 raw:true 로 읽으면 일련번호(예: 46000)로 들어오므로,
+// 그런 경우 실제 날짜(YYYY-MM-DD)로 변환해 보여준다. 이미 사람이 읽을 수 있는
+// 날짜 문자열(예: "26/2/3", "2026-02-03")이면 원본 그대로 유지한다.
+function displayDate(r){
+  const raw = (r.dateRaw==null ? '' : String(r.dateRaw)).trim();
+  if(!raw) return '–';
+  const isSerial = /^\d+(\.\d+)?$/.test(raw);   // 순수 숫자 = 엑셀 일련번호로 판단
+  if(isSerial && r.dateObj){
+    const d = r.dateObj;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  return raw;
+}
+// 헤더명 유연 매핑
+function pick(row, keys){
+  for(const k of Object.keys(row)){
+    const clean = String(k).replace(/\s/g,'');
+    for(const want of keys){ if(clean.includes(want)) return row[k]; }
+  }
+  return '';
+}
+
+/* ═══════════════ 정규화 ═══════════════ */
+// 원본 헤더에 '구분'이 2개 등장(① 설비/장비/시설, ② 고장교체/수리/부품교체/보수).
+// SheetJS는 중복 헤더를 '구분', '구분_1' 로 자동 구분한다.
+// 정확한 헤더 키를 찾아 kind(자산유형) / taskType(작업유형)을 구분해 매핑한다.
+function findKindKeys(sampleRow){
+  const keys = Object.keys(sampleRow).filter(k=>String(k).replace(/\s/g,'').includes('구분'));
+  return keys; // [kindKey, taskTypeKey?] 순서대로
+}
+function normalize(rows){
+  const kindKeys = rows.length ? findKindKeys(rows[0]) : [];
+  const kindKey = kindKeys[0] || '구분';
+  const taskKey = kindKeys[1] || null;   // 두 번째 '구분' = 작업유형
+
+  return rows.map(r=>{
+    const dateRaw = pick(r,['일자','날짜','date','Date']);
+    const dt = parseDate(dateRaw);
+    const vendor = String(pick(r,['수행업체','업체']) || '').trim();
+    const isOut = vendor.includes('외주');
+    const kind = String(r[kindKey] || '').trim();
+    let taskType = taskKey ? String(r[taskKey] || '').trim() : '';
+    if(!taskType){ // 폴백: 조치내용/현상에서 유형 추론
+      const a = String(pick(r,['조치내용','조치'])||'');
+      if(a.includes('교체')) taskType='부품교체';
+      else if(a.includes('수리')) taskType='고장수리';
+      else if(a.includes('보수')) taskType='부분보수';
+      else taskType='기타';
+    }
+    return {
+      dateRaw: dateRaw==null?'':String(dateRaw),
+      ym: dt?dt.ym:'', monthLabel: dt?dt.label:'', dateObj: dt?dt.d:null,
+      kind,                                   // 설비/장비/시설
+      zone: String(pick(r,['구역']) || '').trim(),
+      target: String(pick(r,['대상설비명','설비명','대상']) || '').trim(),
+      mgmt: String(pick(r,['관리번호']) || '').trim(),
+      taskType,                               // 고장교체/수리/부품교체/보수
+      symptom: String(pick(r,['발생현상','현상','문제']) || '').trim(),
+      cause: String(pick(r,['원인']) || '').trim(),
+      action: String(pick(r,['조치내용','조치']) || '').trim(),
+      cost: parseCost(pick(r,['소요비용','비용','금액'])),
+      vendor: vendor || '자체처리',
+      isOut,
+      worker: String(pick(r,['작업자']) || '').trim(),
+      status: String(pick(r,['진행상태','상태']) || '').trim(),
+      note: String(pick(r,['비고']) || '').trim(),
+    };
+  }).filter(r=> r.target || r.zone || r.symptom);  // 빈 행 제거
+}
+
+/* ═══════════════ 필터 ═══════════════ */
+function getFiltered(){
+  const m=$('filterMonth').value, z=$('filterZone').value,
+        s=$('filterStatus').value, v=$('filterVendor').value,
+        q=($('search').value||'').trim().toLowerCase();
+  return RAW.filter(r=>{
+    if(m && r.ym!==m) return false;
+    if(z && r.zone!==z) return false;
+    if(s && r.status!==s) return false;
+    if(v && r.vendor!==v) return false;
+    if(q){
+      const hay=[r.target,r.symptom,r.cause,r.action,r.worker,r.zone,r.taskType].join(' ').toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+/* ═══════════════ 필터 옵션 채우기 ═══════════════ */
+function fillFilters(){
+  const uniq=(arr)=>[...new Set(arr.filter(Boolean))];
+  const setOpts=(id,vals,keep)=>{
+    const el=$(id), cur=el.value;
+    el.innerHTML=`<option value="">${keep}</option>`+vals.map(v=>`<option value="${v}">${v}</option>`).join('');
+    if(vals.includes(cur)) el.value=cur;
+  };
+  setOpts('filterMonth', uniq(RAW.map(r=>r.ym)).sort().map(ym=>ym), '전체 기간');
+  // month label
+  $('filterMonth').querySelectorAll('option').forEach(o=>{
+    if(o.value){ const r=RAW.find(x=>x.ym===o.value); if(r) o.textContent=r.monthLabel; }
+  });
+  setOpts('filterZone', uniq(RAW.map(r=>r.zone)).sort(), '전체 구역');
+  setOpts('filterStatus', uniq(RAW.map(r=>r.status)).sort(), '전체 상태');
+  setOpts('filterVendor', uniq(RAW.map(r=>r.vendor)).sort(), '전체 처리주체');
+}
+
+/* ═══════════════ KPI ═══════════════ */
+function renderKPI(rows){
+  const count=rows.length;
+  const total=rows.reduce((s,r)=>s+r.cost,0);
+  const avg=count?total/count:0;
+  const open=rows.filter(r=>r.status && r.status!=='완료').length;
+  const outCost=rows.filter(r=>r.isOut).reduce((s,r)=>s+r.cost,0);
+  const outPct=total?(outCost/total*100):0;
+  const selfCount=rows.filter(r=>!r.isOut).length;
+
+  $('kpiCount').textContent=count.toLocaleString('ko-KR')+'건';
+  $('kpiCountFoot').textContent=`자체 ${selfCount} · 외주 ${count-selfCount}`;
+  $('kpiCost').textContent=won(total);
+  $('kpiAvg').textContent=won(avg);
+  $('kpiOpen').innerHTML = open>0 ? `${open}건` : '0건';
+  $('kpiOpenFoot').innerHTML = open>0 ? `<b>확인 필요</b>` : '전건 완료';
+  $('kpiOut').textContent=outPct.toFixed(0)+'%';
+  $('kpiOutFoot').textContent=`외주 ${won(outCost)}`;
+}
+
+/* ═══════════════ 차트 ═══════════════ */
+function destroyCharts(){ Object.values(charts).forEach(c=>c&&c.destroy()); charts={}; }
+const noGridX={grid:{display:false},ticks:{color:TICK,font:{size:14}}};
+const gridY={grid:{color:GRID},ticks:{color:TICK,font:{size:14}}};
+
+function groupSum(rows, key, valFn){
+  const m={};
+  rows.forEach(r=>{const k=r[key]||'기타'; m[k]=(m[k]||0)+valFn(r);});
+  return m;
+}
+function groupCount(rows, key){
+  const m={};
+  rows.forEach(r=>{const k=r[key]||'기타'; m[k]=(m[k]||0)+1;});
+  return m;
+}
+
+function renderCharts(rows){
+  destroyCharts();
+
+  /* 구역별 비용 (가로 막대) */
+  {
+    const m=groupSum(rows,'zone',r=>r.cost);
+    const ent=Object.entries(m).sort((a,b)=>b[1]-a[1]);
+    charts.zone=new Chart($('chartZone'),{
+      type:'bar',
+      data:{labels:ent.map(e=>e[0]),datasets:[{data:ent.map(e=>e[1]),
+        backgroundColor:'#1428A0',hoverBackgroundColor:'#2645B0',borderRadius:6,barThickness:'flex',maxBarThickness:26}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>won(c.parsed.x)}}},
+        scales:{x:{...gridY,ticks:{color:TICK,font:{size:13},callback:v=>'₩'+(v/1000)+'k'}},y:noGridX}}
+    });
+  }
+
+  /* 구분별 건수 (도넛) */
+  {
+    const m=groupCount(rows,'taskType');
+    const ent=Object.entries(m).sort((a,b)=>b[1]-a[1]);
+    charts.type=new Chart($('chartType'),{
+      type:'doughnut',
+      data:{labels:ent.map(e=>e[0]),datasets:[{data:ent.map(e=>e[1]),
+        backgroundColor:PALETTE,borderColor:'#FFFFFF',borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+        plugins:{legend:{position:'right',labels:{color:LEGEND,font:{size:14},padding:12,boxWidth:12,boxHeight:12,usePointStyle:true}},
+          tooltip:{callbacks:{label:c=>`${c.label}: ${c.parsed}건`}}}}
+    });
+  }
+
+  /* 월별 추이 (막대+라인) */
+  {
+    const byMonth={};
+    rows.forEach(r=>{if(!r.ym)return; byMonth[r.ym]=byMonth[r.ym]||{cnt:0,cost:0}; byMonth[r.ym].cnt++; byMonth[r.ym].cost+=r.cost;});
+    const keys=Object.keys(byMonth).sort();
+    const labels=keys.map(k=>{const r=RAW.find(x=>x.ym===k);return r?r.monthLabel:k;});
+    charts.trend=new Chart($('chartTrend'),{
+      data:{labels,datasets:[
+        {type:'bar',label:'건수',data:keys.map(k=>byMonth[k].cnt),
+          backgroundColor:'#4FBFB8',borderRadius:6,maxBarThickness:34,yAxisID:'y'},
+        {type:'line',label:'비용',data:keys.map(k=>byMonth[k].cost),
+          borderColor:'#FFB84F',backgroundColor:'rgba(255,184,79,0.15)',
+          tension:0.35,fill:true,pointBackgroundColor:'#FFB84F',pointRadius:4,yAxisID:'y1'}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:LEGEND,font:{size:14},usePointStyle:true,boxWidth:10}},
+          tooltip:{callbacks:{label:c=>c.dataset.label==='비용'?`비용: ${won(c.parsed.y)}`:`건수: ${c.parsed.y}건`}}},
+        scales:{x:noGridX,
+          y:{position:'left',...gridY,title:{display:true,text:'건수',color:TICK,font:{size:13}},beginAtZero:true,ticks:{stepSize:1,color:TICK,font:{size:13}}},
+          y1:{position:'right',grid:{display:false},ticks:{color:TICK,font:{size:13},callback:v=>'₩'+(v/1000)+'k'},beginAtZero:true}}}
+    });
+  }
+
+  /* 원인 TOP 5 (가로 막대) */
+  {
+    const m=groupCount(rows,'cause');
+    const ent=Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    charts.cause=new Chart($('chartCause'),{
+      type:'bar',
+      data:{labels:ent.map(e=>e[0]),datasets:[{data:ent.map(e=>e[1]),
+        backgroundColor:['#1428A0','#2645B0','#4D67C3','#8093D5','#B3BFE7'],borderRadius:6,maxBarThickness:26}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.x}건`}}},
+        scales:{x:{...gridY,beginAtZero:true,ticks:{stepSize:1,color:TICK,font:{size:13}}},y:{...noGridX,ticks:{color:TICK,font:{size:13.5}}}}}
+    });
+  }
+}
+
+/* ═══════════════ 테이블 ═══════════════ */
+function statusTag(s){
+  if(!s) return '<span class="tag tag-self">–</span>';
+  if(s==='완료') return `<span class="tag tag-done">${s}</span>`;
+  return `<span class="tag tag-temp">${s}</span>`;
+}
+function vendorTag(r){
+  return r.isOut ? `<span class="tag tag-out">외주</span>` : `<span class="tag tag-self">자체</span>`;
+}
+function renderTable(rows){
+  const tb=$('tbody');
+  $('rowCount').textContent=rows.length;
+  if(!rows.length){ tb.innerHTML=`<tr><td colspan="12" class="empty">표시할 데이터가 없습니다.</td></tr>`; return; }
+  const sorted=[...rows].sort((a,b)=>(b.dateObj?.getTime()||0)-(a.dateObj?.getTime()||0));
+  tb.innerHTML=sorted.map(r=>{
+    const flag = r.status && r.status!=='완료';
+    return `<tr class="${flag?'flag':''}">
+      <td>${displayDate(r)}</td>
+      <td>${r.kind||'–'}</td>
+      <td>${r.zone||'–'}</td>
+      <td>${r.target||'–'}</td>
+      <td>${r.mgmt||'–'}</td>
+      <td>${r.symptom||'–'}</td>
+      <td>${r.cause||'–'}</td>
+      <td>${r.action||'–'}</td>
+      <td class="num">${r.cost?won(r.cost):'–'}</td>
+      <td>${vendorTag(r)}</td>
+      <td>${r.worker||'–'}</td>
+      <td>${statusTag(r.status)}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ═══════════════ 전체 렌더 ═══════════════ */
+function renderAll(){
+  const rows=getFiltered();
+  renderKPI(rows);
+  renderCharts(rows);
+  renderTable(rows);
+}
+
+/* ═══════════════ 워크북 파싱 (공용) ═══════════════ */
+// 헤더로 볼 만한 필수 컬럼 키워드
+const HEADER_HINTS = ['일자','구역','대상','설비','소요','비용','원인','발생','현상','진행','상태','구분','관리'];
+
+// 시트를 2차원 배열로 읽어, 헤더가 몇 번째 행인지 자동 탐색
+function detectHeaderRow(aoa){
+  const scan = Math.min(aoa.length, 15); // 상위 15행만 검사
+  let best = {idx:-1, score:0};
+  for(let i=0;i<scan;i++){
+    const cells = (aoa[i]||[]).map(c=>String(c==null?'':c).replace(/\s/g,''));
+    const nonEmpty = cells.filter(c=>c!=='').length;
+    if(nonEmpty < 3) continue; // 셀이 너무 적은 행(제목행 등)은 헤더 아님
+    let score = 0;
+    cells.forEach(c=>{ if(HEADER_HINTS.some(h=>c.includes(h))) score++; });
+    if(score > best.score) best = {idx:i, score};
+  }
+  return best.score >= 2 ? best.idx : 0; // 힌트가 2개 이상 맞으면 그 행, 아니면 첫 행
+}
+
+// 한 시트에서 (헤더행 탐색 → 객체배열) 변환
+function sheetToRows(ws){
+  const aoa = XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true,blankrows:false});
+  if(!aoa.length) return {rows:[], headerIdx:-1};
+  const headerIdx = detectHeaderRow(aoa);
+  // 중복 헤더('구분' 2개)에 접미사를 붙여 고유화 (SheetJS 기본과 동일 규칙)
+  const seen = {};
+  const header = (aoa[headerIdx]||[]).map((h,ci)=>{
+    let name = String(h==null?'':h).trim() || `열${ci+1}`;
+    if(seen[name]!=null){ seen[name]++; name = `${name}_${seen[name]}`; }
+    else seen[name] = 0;
+    return name;
+  });
+  const rows = [];
+  for(let r=headerIdx+1; r<aoa.length; r++){
+    const arr = aoa[r]||[];
+    if(arr.every(c=>String(c==null?'':c).trim()==='')) continue; // 빈 행 skip
+    const obj = {};
+    header.forEach((h,ci)=>{ obj[h] = arr[ci]!=null ? arr[ci] : ''; });
+    rows.push(obj);
+  }
+  return {rows, headerIdx};
+}
+
+// 데이터가 들어있는 시트를 자동 선택 (첫 시트가 표지/빈 시트인 경우 대비)
+function pickBestSheet(wb){
+  let best = {name:null, rows:[], headerIdx:-1, count:0};
+  for(const name of wb.SheetNames){
+    const {rows, headerIdx} = sheetToRows(wb.Sheets[name]);
+    // 필수 컬럼(일자 또는 대상설비명)이 실제로 잡히는지 확인
+    const usable = rows.filter(r=> pick(r,['일자','날짜']) || pick(r,['대상설비명','설비명','대상']) || pick(r,['구역']));
+    if(usable.length > best.count){ best = {name, rows, headerIdx, count:usable.length}; }
+  }
+  return best;
+}
+
+function handleWorkbook(wb){
+  if(!wb.SheetNames.length){ showAlert('엑셀에 시트가 없습니다.'); return; }
+
+  const best = pickBestSheet(wb);
+
+  // 진단: 어떤 시트도 유효 데이터가 없을 때
+  if(best.count === 0){
+    const keysSample = best.rows.length ? Object.keys(best.rows[0]).slice(0,8).join(', ') : '(빈 시트)';
+    showAlert(
+      `파일은 읽었지만 표에서 인식 가능한 열을 찾지 못했습니다. ` +
+      `헤더에 '일자 · 구역 · 대상설비명 · 소요비용' 같은 항목이 있는지 확인해 주세요. ` +
+      `(감지된 시트: "${best.name||wb.SheetNames[0]}", 인식된 첫 행 열 이름: ${keysSample})`
+    );
+    return;
+  }
+
+  RAW = normalize(best.rows);
+
+  if(RAW.length === 0){
+    showAlert('행은 있으나 유효한 데이터가 없습니다. 대상설비명·구역·발생현상 중 하나 이상이 채워진 행이 필요합니다.');
+    return;
+  }
+
+  hideAlert();
+  fillFilters();
+  renderAll();
+  // file 모드에서 데이터가 뜨면 로더 접기
+  if(isFile){ $('loader').classList.remove('show'); }
+}
+
+/* ═══════════════ 상태/알림 UI ═══════════════ */
+function setStatus(mode,text){
+  const dot=$('statusDot');
+  dot.className='dot'+(mode==='live'?' live':mode==='err'?' err':'');
+  $('statusText').textContent=text;
+}
+function showAlert(msg){ const a=$('alert'); a.textContent='⚠ '+msg; a.classList.add('show'); }
+function hideAlert(){ $('alert').classList.remove('show'); }
+
+/* ═══════════════ 모드 분기 ═══════════════ */
+/* isFile 은 파일 상단(DATA_URL 근처)에서 이미 선언됨 */
+
+async function fetchData(){
+  try{
+    const url=DATA_URL+'?t='+Date.now();
+    const res=await fetch(url,{cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const buf=await res.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    handleWorkbook(wb);
+    setStatus('live','실시간 · '+new Date().toLocaleTimeString('ko-KR'));
+  }catch(err){
+    setStatus('err','로드 실패');
+    showAlert(`data.xlsx 를 불러오지 못했습니다 (${err.message}). 같은 폴더에 data.xlsx 가 있는지, 서버 경로가 올바른지 확인하세요.`);
+  }
+}
+
+/* ── 파일 자동 감시(실시간 연동) 상태 ── */
+let fileHandle = null;        // File System Access API 핸들
+let watchTimer = null;        // 감시 인터벌
+let lastModified = 0;         // 마지막으로 읽은 파일의 수정 시각
+const WATCH_MS = 3000;        // 3초마다 파일 변경 확인
+const supportsFSAccess = ('showOpenFilePicker' in window);
+
+function initFileMode(){
+  $('loader').classList.add('show');
+  setStatus('','파일 지정 대기');
+  const loader=$('loader'), input=$('fileInput');
+
+  // 자동 연동 버튼: File System Access API 지원 시에만 동작
+  const watchBtn=$('watchBtn');
+  if(supportsFSAccess){
+    watchBtn.onclick=startWatching;
+  }else{
+    // 미지원 브라우저: 자동 연동 버튼 숨기고 안내 문구 조정
+    watchBtn.style.display='none';
+    $('loaderDesc').innerHTML='아래 "파일 선택"으로 data.xlsx 를 불러오세요. 데이터를 바꾼 뒤에는 다시 선택하면 갱신됩니다.<br>(실시간 자동 연동은 Chrome 또는 Edge 브라우저에서 지원됩니다.)';
+  }
+
+  // 수동 1회 선택 (기존 방식 유지)
+  $('pickBtn').onclick=()=>input.click();
+  input.onchange=e=>{ if(e.target.files[0]) readFile(e.target.files[0]); };
+
+  // 드래그&드롭 (기존 방식 유지)
+  ['dragenter','dragover'].forEach(ev=>loader.addEventListener(ev,e=>{e.preventDefault();loader.classList.add('drag');}));
+  ['dragleave','drop'].forEach(ev=>loader.addEventListener(ev,e=>{e.preventDefault();loader.classList.remove('drag');}));
+  loader.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f) readFile(f); });
+}
+
+/* File System Access API로 파일을 지정하고 주기적으로 변경 감시 */
+async function startWatching(){
+  try{
+    const [handle]=await window.showOpenFilePicker({
+      types:[{description:'Excel', accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx'],'application/vnd.ms-excel':['.xls']}}],
+      multiple:false
+    });
+    fileHandle=handle;
+    lastModified=0;
+    await readFromHandle(true);        // 첫 로드
+    if(watchTimer) clearInterval(watchTimer);
+    watchTimer=setInterval(()=>readFromHandle(false), WATCH_MS);  // 이후 자동 감시
+  }catch(err){
+    if(err && err.name==='AbortError') return;  // 사용자가 취소한 경우 조용히 종료
+    setStatus('err','연동 실패'); showAlert('파일 연동에 실패했습니다: '+(err&&err.message||err));
+  }
+}
+
+/* 핸들에서 파일을 읽되, 수정 시각이 바뀐 경우에만 다시 렌더링 */
+async function readFromHandle(force){
+  if(!fileHandle) return;
+  try{
+    const file=await fileHandle.getFile();
+    if(!force && file.lastModified===lastModified) return; // 변경 없으면 skip
+    lastModified=file.lastModified;
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
+    handleWorkbook(wb);
+    setStatus('live','자동 연동 · '+new Date().toLocaleTimeString('ko-KR'));
+  }catch(err){
+    // 권한이 만료되면 재요청 필요할 수 있음
+    setStatus('err','읽기 실패');
+    showAlert('파일을 다시 읽지 못했습니다. "실시간 자동 연동 시작"을 다시 눌러 파일을 지정해 주세요. ('+(err&&err.message||err)+')');
+    if(watchTimer){ clearInterval(watchTimer); watchTimer=null; }
+  }
+}
+
+/* 수동 1회 선택 (기존 FileReader 방식) */
+function readFile(file){
+  const rd=new FileReader();
+  rd.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      handleWorkbook(wb);
+      setStatus('live','파일: '+file.name);
+    }catch(err){ setStatus('err','파싱 실패'); showAlert('파일을 읽을 수 없습니다: '+err.message); }
+  };
+  rd.onerror=()=>{ setStatus('err','읽기 실패'); showAlert('파일 읽기에 실패했습니다.'); };
+  rd.readAsArrayBuffer(file);
+}
+
+/* ═══════════════ 미완료 상세 모달 + 메모 ═══════════════ */
+const MEMO_PREFIX = 'facility_memo_';   // localStorage 키 접두사
+
+// 메모 키: 관리번호 우선, 없으면 구역+설비명 조합
+function memoKey(r){
+  const base = (r.mgmt && r.mgmt.trim()) ? r.mgmt.trim() : (r.zone+'|'+r.target);
+  return MEMO_PREFIX + base;
+}
+function loadMemo(r){
+  try{ return localStorage.getItem(memoKey(r)) || ''; }catch(e){ return ''; }
+}
+function saveMemo(r, text){
+  try{ localStorage.setItem(memoKey(r), text); return true; }catch(e){ return false; }
+}
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// 현재 필터가 적용된 데이터에서 미완료 항목만 추려 모달에 렌더링
+function openOpenModal(){
+  const rows = getFiltered().filter(r=> r.status && r.status!=='완료');
+  const body = $('modalBody');
+  $('modalCnt').textContent = rows.length + '건';
+
+  if(!rows.length){
+    body.innerHTML = `<div class="modal-empty">미완료 항목이 없습니다. 모든 건이 완료 상태입니다. 👍</div>`;
+  }else{
+    // 날짜 최신순
+    const sorted = [...rows].sort((a,b)=>(b.dateObj?.getTime()||0)-(a.dateObj?.getTime()||0));
+    body.innerHTML = sorted.map((r,i)=>{
+      const memo = loadMemo(r);
+      return `<div class="oi-card">
+        <div class="oi-top">
+          <span class="oi-target">${esc(r.target)||'(설비명 없음)'}</span>
+          <span class="oi-mgmt">${esc(r.mgmt)||'관리번호 없음'}</span>
+          ${statusTag(r.status)}
+        </div>
+        <div class="oi-grid">
+          <div class="oi-field"><span class="k">일자</span><span class="v">${esc(displayDate(r))}</span></div>
+          <div class="oi-field"><span class="k">구역</span><span class="v">${esc(r.zone)||'–'}</span></div>
+          <div class="oi-field"><span class="k">발생현상</span><span class="v">${esc(r.symptom)||'–'}</span></div>
+          <div class="oi-field"><span class="k">원인</span><span class="v">${esc(r.cause)||'–'}</span></div>
+          <div class="oi-field"><span class="k">조치내용</span><span class="v">${esc(r.action)||'–'}</span></div>
+          <div class="oi-field"><span class="k">작업자</span><span class="v">${esc(r.worker)||'–'}</span></div>
+          <div class="oi-field"><span class="k">처리주체</span><span class="v">${esc(r.vendor)||'–'}</span></div>
+          <div class="oi-field"><span class="k">소요비용</span><span class="v">${r.cost?won(r.cost):'–'}</span></div>
+          ${r.note ? `<div class="oi-field" style="grid-column:1/-1"><span class="k">비고</span><span class="v">${esc(r.note)}</span></div>` : ''}
+        </div>
+        <div class="oi-memo">
+          <label for="memo_${i}">📝 중요사항 메모 (이 브라우저에 저장됩니다)</label>
+          <textarea id="memo_${i}" data-idx="${i}" placeholder="예: 부품 발주 완료, 담당자 통화 예정, 재점검 필요 등">${esc(memo)}</textarea>
+          <div class="saved" id="saved_${i}"></div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // 메모 자동 저장 (입력 후 0.6초)
+    let memoTimers = {};
+    body.querySelectorAll('textarea[data-idx]').forEach(ta=>{
+      const idx = ta.getAttribute('data-idx');
+      ta.addEventListener('input', ()=>{
+        clearTimeout(memoTimers[idx]);
+        memoTimers[idx] = setTimeout(()=>{
+          const ok = saveMemo(sorted[idx], ta.value);
+          const savedEl = $('saved_'+idx);
+          if(savedEl){
+            savedEl.textContent = ok ? '✓ 저장됨 · '+new Date().toLocaleTimeString('ko-KR') : '저장 실패(브라우저 설정 확인)';
+            if(ok) setTimeout(()=>{ if(savedEl) savedEl.textContent=''; }, 2500);
+          }
+        }, 600);
+      });
+    });
+  }
+  // 위치·크기를 기본(가운데 상단)으로 초기화한 뒤 표시
+  const box=$('openModalBox');
+  if(box){ box.style.left='50%'; box.style.top='60px'; box.style.transform='translateX(-50%)'; }
+  $('openModal').classList.add('show');
+}
+function closeOpenModal(){ $('openModal').classList.remove('show'); }
+
+/* ── 모달 드래그 이동 ── */
+(function enableModalDrag(){
+  const box = $('openModalBox'), head = $('openModalHead');
+  if(!box || !head) return;
+  let dragging=false, offX=0, offY=0;
+
+  function onDown(e){
+    // 닫기 버튼을 누른 경우는 드래그 아님
+    if(e.target.closest('.modal-close')) return;
+    dragging=true;
+    const pt = e.touches ? e.touches[0] : e;
+    const rect = box.getBoundingClientRect();
+    // transform(가운데 정렬) 제거하고 실제 좌표로 고정
+    box.style.transform='none';
+    box.style.left = rect.left + 'px';
+    box.style.top  = rect.top  + 'px';
+    offX = pt.clientX - rect.left;
+    offY = pt.clientY - rect.top;
+    document.body.style.userSelect='none';
+    e.preventDefault();
+  }
+  function onMove(e){
+    if(!dragging) return;
+    const pt = e.touches ? e.touches[0] : e;
+    let x = pt.clientX - offX;
+    let y = pt.clientY - offY;
+    // 화면 밖으로 완전히 나가지 않도록 살짝 제한
+    const w = box.offsetWidth, h = box.offsetHeight;
+    const margin = 40;
+    x = Math.max(margin - w + 80, Math.min(x, window.innerWidth - 80));
+    y = Math.max(0, Math.min(y, window.innerHeight - 44));
+    box.style.left = x + 'px';
+    box.style.top  = y + 'px';
+  }
+  function onUp(){ dragging=false; document.body.style.userSelect=''; }
+
+  head.addEventListener('mousedown', onDown);
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+  head.addEventListener('touchstart', onDown, {passive:false});
+  document.addEventListener('touchmove', onMove, {passive:false});
+  document.addEventListener('touchend', onUp);
+})();
+
+// 카드 클릭 → 모달 열기
+$('kpiOpenCard').addEventListener('click', openOpenModal);
+// 닫기 (X 버튼, 배경 클릭, ESC)
+$('modalClose').addEventListener('click', closeOpenModal);
+$('openModal').addEventListener('click', e=>{ if(e.target===$('openModal')) closeOpenModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeOpenModal(); });
+
+/* ═══════════════ 이벤트 ═══════════════ */
+['filterMonth','filterZone','filterStatus','filterVendor'].forEach(id=>$(id).addEventListener('change',renderAll));
+let searchTimer;
+$('search').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(renderAll,200);});
+
+/* ═══════════════ 시작 ═══════════════ */
+if(isFile){
+  initFileMode();
+}else{
+  fetchData();
+  refreshTimer=setInterval(fetchData,REFRESH_MS);
+}
+</script>
+</body>
+</html>
