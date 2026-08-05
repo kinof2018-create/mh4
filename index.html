@@ -312,18 +312,7 @@ const NOTICES = [
  body:'모두 즐거운 여름휴가를 마치고 건강하게 복귀해 주셔서 감사합니다. 업무 재개 전 전열기구 및 설비 주변의 화재 위험 요소를 미리 점검하여 안전한 일터를 만들어 주세요.'},  
   {date:'2026-07-31', cat:'안전', title:'하계 폭염 대비 안전수칙 안내', pin:true,
   body:'폭염특보 발효 시 옥외작업을 자제하고, 시간당 10분 이상 규칙적으로 휴식하며 충분한 수분을 섭취해 주세요. 냉방기·정수기 점검을 완료했습니다.'},
- {date:'2026-07-28', cat:'총무', title:'2026년 통근버스 운행시간표 안내(도농·사릉)',
-  body:'진관산업단지 통근버스 운행시간표를 공지합니다. 도농/사릉 2개 노선의 출·퇴근 시간은 좌측 「셔틀버스 안내」에서 확인하세요. 문의 031-555-2962.'},
- {date:'2026-07-25', cat:'교육', title:'2026 하반기 안전보건교육 일정 공지',
-  body:'하반기 정기 안전보건교육을 8월 중 실시합니다. 대상·일정 및 교육자료는 좌측 「안전교육」 항목에서 확인·이수해 주세요.'},
- {date:'2026-07-20', cat:'총무', title:'사내 정기 방역·소독 실시 안내',
-  body:'매월 셋째 주 금요일 정기 방역·소독을 실시합니다. 작업 종료 후 개인 물품 정리에 협조 바랍니다.'},
- {date:'2026-07-15', cat:'인사', title:'하계 휴가 신청 안내',
-  body:'하계 휴가 신청은 7월 31일까지 전자결재로 제출해 주세요. 부서별 업무 공백이 없도록 일정 조율 부탁드립니다.'},
- {date:'2026-07-10', cat:'안전', title:'지게차·중량물 취급 작업 주의 재공지',
-  body:'회전체 끼임·중량물 취급 관련 위험성평가 결과에 따라, 작업 전 안전점검과 보호구 착용을 철저히 해 주세요.'},
- {date:'2026-07-05', cat:'일반', title:'분리수거·사내 청결 캠페인 실시',
-  body:'쾌적한 근무환경 조성을 위한 분리배출 캠페인을 실시합니다. 구역별 분리수거함 이용에 협조 부탁드립니다.'},
+ 
 ];
 const NAV = [
  {key:'notice', icon:'📢', name:'사내 공지문',  pill:'', pc:''},
@@ -591,7 +580,7 @@ function renderBus(){
 
    <div class="section-label"><span class="bar" style="background:var(--bus)"></span>연락처 · 요약</div>
    <div class="card-grid" style="grid-template-columns:1.1fr 1.4fr;">
-     <div class="contact-card"><div class="ic">☎</div><div><div class="lb">셔틀버스 운행 문의</div><div class="num"><a href="tel:031-555-2962">031-555-2962</a></div></div></div>
+     <div class="contact-card"><div class="ic">☎</div><div><div class="lb">셔틀버스 운행 문의</div><div class="num"><a href="tel:031-555-2962">02-737-7274</a></div></div></div>
      <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
        <div class="kpi"><div class="bar" style="background:var(--bus)"></div><div class="kl">🚌 운행 노선</div><div class="kv">2<small>개</small></div><div class="ks">도농 · 사릉</div></div>
        <div class="kpi"><div class="bar" style="background:#1B63D6"></div><div class="kl">📍 정류장</div><div class="kv">${stops.size}<small>곳</small></div><div class="ks">중복 제외</div></div>
@@ -608,7 +597,7 @@ function renderBus(){
 
    <div class="section-label"><span class="bar" style="background:var(--bus)"></span>통근버스 사진</div>
    <div class="card"><img class="bus-photo" src="${BUS_IMG}" alt="삼화당피앤티 통근버스(HANA)"/>
-     <p style="margin:12px 2px 0;font-size:0.74rem;color:var(--text-tertiary);font-weight:600">※ 노선·시간은 사정에 따라 변경될 수 있습니다. 변경 시 「사내 공지문」으로 안내됩니다. 문의 031-555-2962.</p></div>`;
+     <p style="margin:12px 2px 0;font-size:0.74rem;color:var(--text-tertiary);font-weight:600">※ 노선·시간은 사정에 따라 변경될 수 있습니다. 변경 시 「사내 공지문」으로 안내됩니다. 문의 02-737-7274.</p></div>`;
 }
 function openBusPrint(){
   const routeBlock = r => `
