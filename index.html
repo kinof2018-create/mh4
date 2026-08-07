@@ -137,6 +137,8 @@ body{font-family:var(--font);background:var(--bg-subtle);color:var(--text-primar
 .lv-doc.file{padding:18px 12px;text-align:center;} .lv-doc.file .fi{font-size:28px;color:var(--color-primary-500);}
 .lv-note{margin:16px 2px 0;font-size:0.72rem;color:var(--text-tertiary);font-weight:600;line-height:1.7;}
 .lv-note b{color:var(--text-secondary);}
+.lv-info{margin:12px 0 4px;padding:12px 15px;background:rgba(20,40,160,0.06);border:1px solid var(--border-default);border-left:4px solid var(--color-primary-500);border-radius:var(--radius-md);font-size:0.82rem;font-weight:700;color:var(--text-secondary);line-height:1.6;}
+body.dark .lv-info{background:rgba(255,255,255,0.05);}
 /* ===== 식당 메뉴(오늘의 식단) ===== */
 .fd-hero{display:flex;align-items:center;gap:13px;padding:18px;margin-bottom:14px;border-radius:var(--radius-xl);color:#fff;box-shadow:var(--shadow-card);background:linear-gradient(135deg,var(--bus-d),var(--bus) 80%,#F59E0B 150%);}
 .fd-hero .fd-ic{width:48px;height:48px;border-radius:13px;flex:none;display:grid;place-items:center;font-size:25px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);}
@@ -739,6 +741,7 @@ function renderLeave(){
    <div class="section-label"><span class="bar" style="background:var(--edu)"></span>이번 달 연차 사용 예정</div>
    <div class="lv-list" id="lvPlanList">${planHTML}</div>
    <button class="lv-btn" id="lvBalBtn">📄 전직원 연차 잔여일 확인하기</button>
+   <div class="lv-info">※ 연차 사용 횟수는 근로자대표님을 통해 동의 서명을 하신 횟수를 말합니다.<br>따라서, 정확한 잔여 횟수는 사무실을 통해 확인해 주세요.</div>
    <div class="section-label" id="lvBalance"><span class="bar"></span>전직원 잔여 연차</div>
    <div class="lv-table-wrap"><table class="lv-table"><thead><tr><th>이름</th><th>부서</th><th>총</th><th>사용</th><th>잔여</th></tr></thead>
      <tbody id="lvBalBody">${balRows||'<tr><td colspan="5" style="padding:18px;color:var(--text-tertiary)">등록된 잔여 연차 데이터가 없습니다.</td></tr>'}</tbody></table>
