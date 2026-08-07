@@ -5,6 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#0A1758" />
 <title>삼화당피앤티 사내 안내문</title>
+<!-- ================= 카카오톡 링크 미리보기(Open Graph) =================
+     카톡·문자 등에 링크를 붙이면 아래 내용으로 '미니 카드'가 뜹니다.
+     ▶ 특정 공지 제목으로 카드를 바꾸고 싶으면 og:title / og:description 두 줄만
+        수정하고 Push 하세요. (카톡은 미리보기를 캐시하므로, 바로 안 바뀌면
+        https://developers.kakao.com/tool/clear/og 에서 URL 캐시 초기화)
+     ▶ 카드 이미지는 share/og-image.png 입니다. 교체하려면 같은 이름으로 덮어쓰세요. -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="(주)삼화당피앤티 사내 안내문" />
+<meta property="og:title" content="📢 (주)삼화당피앤티 사내 안내문" />
+<meta property="og:description" content="사내 공지·안전교육·셔틀버스·식단·연차 안내를 한 화면에서 확인하세요." />
+<meta property="og:image" content="https://kinof2018-create.github.io/mh4/share/og-image.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:url" content="https://kinof2018-create.github.io/mh4/" />
+<meta name="twitter:card" content="summary_large_image" />
+<!-- ==================================================================== -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@1.3.9/dist/web/static/pretendard.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
@@ -286,6 +302,12 @@ body.dark .lv-info{background:rgba(255,255,255,0.05);}
 .ntc.mustread{border:1px solid #F1B4B4;border-left:5px solid #D64545;background:linear-gradient(90deg,rgba(214,69,69,0.10),var(--bg-elevated) 60%);box-shadow:0 6px 18px rgba(214,69,69,0.14);}
 body.dark .ntc.mustread{border-color:rgba(214,69,69,0.5);}
 .nmust{display:inline-flex;align-items:center;gap:4px;font-size:0.64rem;font-weight:900;color:#fff;background:#D64545;padding:3px 10px;border-radius:9999px;box-shadow:0 0 8px rgba(214,69,69,0.5);}
+/* 필독: 헤드라인(제목)만 표시 → 클릭 시 상세 */
+.ntc.mustread.headline{padding:14px 16px;}
+.ntc.mustread.headline .nh{gap:7px;}
+.ntc.mustread .mh-title{display:flex;align-items:center;gap:10px;margin-top:9px;}
+.ntc.mustread .mh-title .ntitle{flex:1;min-width:0;width:auto;order:0;margin:0;font-size:1.04rem;font-weight:800;color:var(--text-primary);line-height:1.4;}
+.ntc.mustread .mh-title .mh-go{flex:none;font-size:0.74rem;font-weight:800;color:#D64545;white-space:nowrap;}
 /* 공지 카테고리 필터(칩) */
 .ntc-filter{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;}
 .nf-chip{display:inline-flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;padding:8px 13px;border-radius:9999px;border:1px solid var(--border-default);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;transition:background .15s,color .15s,box-shadow .15s;box-shadow:var(--shadow-sm);}
@@ -795,10 +817,9 @@ function renderNotice(){
    <div class="section-label"><span class="bar" style="background:#D64545"></span>📌 중요 · 필독 공지 <span class="sub">— 항상 상단 고정</span></div>
    <div class="pinbox">
      ${pins.map((n,i)=>`
-       <div class="ntc pin mustread" data-pi="${i}" role="button" tabindex="0">
-         <div class="nh"><span class="ncat cat-${n.cat}">${esc(n.cat)}</span><span class="nmust">🚨 필독</span>${n.pin?'<span class="npin">📌 긴급</span>':''}<span class="ntitle">${esc(n.title)}</span>${n.date?`<span class="ndate">${esc(n.date)}</span>`:''}</div>
-         <div class="nbody">${esc(n.body)}</div>
-         <div class="nmore">탭하여 상세보기 ›</div>
+       <div class="ntc pin mustread headline" data-pi="${i}" role="button" tabindex="0">
+         <div class="nh"><span class="ncat cat-${n.cat}">${esc(n.cat)}</span><span class="nmust">🚨 필독</span>${n.pin?'<span class="npin">📌 긴급</span>':''}${n.date?`<span class="ndate">${esc(n.date)}</span>`:''}</div>
+         <div class="mh-title"><span class="ntitle">${esc(n.title)}</span><span class="mh-go">자세히 ›</span></div>
        </div>`).join('')}
    </div>`:''}
    ${sorted.length?`
