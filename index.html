@@ -281,6 +281,11 @@ body.dark .lv-info{background:rgba(255,255,255,0.05);}
 .ntc .ndate{margin-left:auto;font-size:0.7rem;font-weight:700;color:var(--text-tertiary);}
 .ntc .nbody{margin-top:10px;font-size:0.9rem;font-weight:500;color:var(--text-secondary);line-height:1.72;}
 .cat-안전{background:#D64545;} .cat-총무{background:#1B63D6;} .cat-교육{background:#2E9E5B;} .cat-인사{background:#8A5AD6;} .cat-일반{background:#5A5F6E;}
+/* 📌 중요·필독 공지 */
+.pinbox{display:flex;flex-direction:column;gap:11px;margin-bottom:6px;}
+.ntc.mustread{border:1px solid #F1B4B4;border-left:5px solid #D64545;background:linear-gradient(90deg,rgba(214,69,69,0.10),var(--bg-elevated) 60%);box-shadow:0 6px 18px rgba(214,69,69,0.14);}
+body.dark .ntc.mustread{border-color:rgba(214,69,69,0.5);}
+.nmust{display:inline-flex;align-items:center;gap:4px;font-size:0.64rem;font-weight:900;color:#fff;background:#D64545;padding:3px 10px;border-radius:9999px;box-shadow:0 0 8px rgba(214,69,69,0.5);}
 /* 공지 카테고리 필터(칩) */
 .ntc-filter{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;}
 .nf-chip{display:inline-flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;padding:8px 13px;border-radius:9999px;border:1px solid var(--border-default);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;transition:background .15s,color .15s,box-shadow .15s;box-shadow:var(--shadow-sm);}
@@ -502,6 +507,7 @@ const EDU_VIDEOS = [
    ========================================================================= */
 const GH_OWNER='kinof2018-create', GH_REPO='mh4', GH_BRANCH='main', SAFE_BASE='';
 const NOTICE_FILE='공지/공지목록.txt';
+const PINNED_FILE='필독공지/필독.txt';         // 📌 중요·필독 공지(항상 최상단). 비우면 자동 숨김
 const VIDEO_FILE='동영상/영상목록.txt';
 /* 연차/연휴 캘린더 데이터 파일 (연차 탭). 이 파일들만 편집·Push하면 자동 갱신됩니다. */
 const LEAVE_HOLIDAY_FILE='연차/휴무일.txt';   // 날짜 | 명칭 | 구분
@@ -579,8 +585,22 @@ function parseNoticeFile(txt){
 async function loadNotices(){
   try{ const txt=await fetchText(NOTICE_FILE);
     if(txt && txt.trim()){ const arr=parseNoticeFile(txt);
-      if(arr.length){ NOTICES.length=0; arr.forEach(n=>NOTICES.push(n)); renderNav(); if(activeKey==='notice') renderMain(); }
+      if(arr.length){ NOTICES.length=0; arr.forEach(n=>NOTICES.push(n)); leadShown=false; renderNav(); if(activeKey==='notice') renderMain(); }
     }
+  }catch(e){}
+}
+
+/* ===== 📌 중요·필독 공지 자동 연동 =====
+   필독공지/필독.txt 를 읽어 최상단 '필독 공지' 영역을 구성합니다.
+   파일이 비어 있으면 필독 영역은 자동으로 사라지고 '최근 공지'만 표시됩니다. */
+let PINNED=null, PINNED_VIEW=[];
+const PINNED_DEFAULT=[{cat:'안전',date:'2026-08-06',pin:true,title:'하계 휴가 복귀에 따른 안전 및 화재 예방 안내',body:'모두 즐거운 여름휴가를 마치고 건강하게 복귀해 주셔서 감사합니다. 업무 재개 전 전열기구 및 설비 주변의 화재 위험 요소를 미리 점검하여 안전한 일터를 만들어 주세요.'}];
+async function loadPinned(){
+  try{ const enc=PINNED_FILE.split('/').map(encodeURIComponent).join('/'); let text=null;
+    let r=await fetch('https://raw.githubusercontent.com/'+GH_OWNER+'/'+GH_REPO+'/'+GH_BRANCH+'/'+enc);
+    if(r.ok) text=await r.text();
+    else { const a=await fetch('https://api.github.com/repos/'+GH_OWNER+'/'+GH_REPO+'/contents/'+enc+'?ref='+GH_BRANCH,{headers:{'Accept':'application/vnd.github.raw'}}); if(a.ok) text=await a.text(); }
+    if(text!==null){ PINNED=parseNoticeFile(text); if(activeKey==='notice') renderMain(); }  // 파일 존재: 내용 있으면 표시, 비면 [] → 숨김
   }catch(e){}
 }
 
@@ -597,6 +617,8 @@ async function loadEduVideos(){
 
 /* ===== 상태/공통 ===== */
 let activeKey='notice';
+let leadShown=false;   // 처음 1회, 최근 공지 자동 팝업 표시 여부
+function autoLead(){ if(leadShown || activeKey!=='notice') return; const lead=document.querySelector('.notice-list .ntc.led'); if(lead){ leadShown=true; lead.click(); } }
 const charts={};
 function destroyCharts(){ Object.values(charts).forEach(c=>c&&c.destroy()); for(const k in charts) delete charts[k]; }
 function themed(){ const d=document.body.classList.contains('dark'); return {grid:d?'rgba(255,255,255,0.1)':'rgba(16,24,40,0.08)',tick:d?'rgba(255,255,255,0.7)':'#5A5F6E',legend:d?'rgba(255,255,255,0.85)':'#2A2E3A'}; }
@@ -767,7 +789,18 @@ function renderNotice(){
   const cats=[...new Set(NOTICES.map(n=>n.cat))];
   const recent=NOTICES.map(n=>n.date).sort().slice(-1)[0]||'-';
   const sorted=NOTICES.slice().sort((a,b)=>a.date<b.date?1:-1);
+  const pins = (PINNED===null)?PINNED_DEFAULT:PINNED; PINNED_VIEW=pins;
   $('content').innerHTML=`
+   ${pins.length?`
+   <div class="section-label"><span class="bar" style="background:#D64545"></span>📌 중요 · 필독 공지 <span class="sub">— 항상 상단 고정</span></div>
+   <div class="pinbox">
+     ${pins.map((n,i)=>`
+       <div class="ntc pin mustread" data-pi="${i}" role="button" tabindex="0">
+         <div class="nh"><span class="ncat cat-${n.cat}">${esc(n.cat)}</span><span class="nmust">🚨 필독</span>${n.pin?'<span class="npin">📌 긴급</span>':''}<span class="ntitle">${esc(n.title)}</span>${n.date?`<span class="ndate">${esc(n.date)}</span>`:''}</div>
+         <div class="nbody">${esc(n.body)}</div>
+         <div class="nmore">탭하여 상세보기 ›</div>
+       </div>`).join('')}
+   </div>`:''}
    ${sorted.length?`
    <div class="section-label"><span class="bar" style="background:#D64545"></span>🔴 최근 공지 <span class="sub">— 가장 최근에 등록된 공지</span></div>
    <div class="notice-list">
@@ -813,19 +846,25 @@ function renderNotice(){
    </div>`;
   (function(){
     const modal=$('ntcModal'), mbody=$('ntcModalBody'); if(!modal) return;
-    function openNtc(i){ const n=sorted[i]; if(!n) return;
+    function openObj(n, kind){ if(!n) return;
       mbody.innerHTML='<div class="nm-top"><span class="ncat cat-'+n.cat+'">'+esc(n.cat)+'</span>'
-        +(i===0?'<span class="nled-tag"><span class="led-dot"></span>최근 공지</span>':'')
+        +(kind==='pin'?'<span class="nmust">🚨 필독</span>':'')
+        +(kind==='lead'?'<span class="nled-tag"><span class="led-dot"></span>최근 공지</span>':'')
         +(n.pin?'<span class="npin">📌 긴급</span>':'')
-        +'<span class="nm-date">'+esc(n.date)+'</span></div>'
+        +(n.date?'<span class="nm-date">'+esc(n.date)+'</span>':'')+'</div>'
         +'<h3 class="nm-title">'+esc(n.title)+'</h3>'
         +'<div class="nm-body">'+esc(n.body)+'</div>';
       modal.classList.add('show'); modal.setAttribute('aria-hidden','false');
     }
+    function openNtc(i){ openObj(sorted[i], i===0?'lead':''); }
     function closeNtc(){ modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); }
     document.querySelectorAll('.notice-list .ntc').forEach(function(el){
       el.addEventListener('click',function(){ openNtc(parseInt(el.getAttribute('data-i'),10)); });
       el.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openNtc(parseInt(el.getAttribute('data-i'),10)); } });
+    });
+    document.querySelectorAll('.pinbox .ntc').forEach(function(el){
+      el.addEventListener('click',function(){ openObj(PINNED_VIEW[parseInt(el.getAttribute('data-pi'),10)],'pin'); });
+      el.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openObj(PINNED_VIEW[parseInt(el.getAttribute('data-pi'),10)],'pin'); } });
     });
     modal.querySelectorAll('[data-close]').forEach(function(x){ x.addEventListener('click',closeNtc); });
     document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeNtc(); });
@@ -847,6 +886,7 @@ function renderNotice(){
       });
     });
   })();
+  autoLead();   // 처음 1회: 최근 공지를 상단 팝업으로 자동 표시
   const t=themed(); if(!hasChart()){ ['fCat','fMon'].forEach(id=>{const e=$(id);if(e)e.style.display='block';}); return; }
   const cm={}; NOTICES.forEach(n=>cm[n.cat]=(cm[n.cat]||0)+1); const ck=Object.keys(cm);
   const colr={'안전':'#D64545','총무':'#1B63D6','교육':'#2E9E5B','인사':'#8A5AD6','일반':'#5A5F6E'};
@@ -989,6 +1029,7 @@ renderNav();
 renderMain();
 loadSafeIndex();
 loadNotices();
+loadPinned();
 loadEduVideos();
 loadLeave();
 loadFood();
