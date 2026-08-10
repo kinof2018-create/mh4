@@ -363,6 +363,8 @@ body.dark .ntc.mustread{border-color:rgba(214,69,69,0.5);}
 .file-card.doc{border-style:solid;border-color:var(--border-default);background:var(--bg-elevated);cursor:pointer;text-decoration:none;transition:box-shadow .12s,border-color .12s;display:block;}
 .file-card.doc:active{transform:scale(0.99);}
 .file-card.doc .fi{opacity:1;color:var(--edu);} .file-card.doc .fn{color:var(--text-primary);word-break:break-all;}
+.ntc.static{cursor:default;}
+.file-card.doc .cmp-thumb{width:100%;height:108px;object-fit:cover;border-radius:8px;display:block;margin-bottom:6px;background:var(--bg-subtle);}
 .upload-btn{margin-left:auto;font-size:0.7rem;font-weight:700;text-decoration:none;padding:8px 13px;border-radius:9999px;background:var(--edu);color:#fff;white-space:nowrap;}
 .upload-btn:active{transform:scale(0.97);}
 .empty-note{margin-top:12px;font-size:0.72rem;color:var(--text-tertiary);background:var(--bg-subtle);border:1px dashed var(--border-default);border-radius:var(--radius-md);padding:11px 13px;line-height:1.7;}
@@ -480,6 +482,7 @@ const MENU = [
  {key:'promo',  icon:'🏢', name:'회사 홍보 자료'},
  {key:'esg',    icon:'🌱', name:'ESG 관련 자료'},
  {key:'etcedu', icon:'📚', name:'기타 교육 자료'},
+ {key:'complaint', icon:'🏘️', name:'회사 주변 민원 상황'},
 ];
 /* 자료실 카테고리(동영상 링크 + 파일). 폴더에 올리고 Push하면 동기화됩니다. */
 const RESOURCES=[
@@ -489,6 +492,9 @@ const RESOURCES=[
 ];
 const RESById={}; RESOURCES.forEach(r=>RESById[r.key]=r);
 let RES_CACHE={};
+/* 회사 주변 민원 상황: 글(민원목록.txt) + 사진·문서(폴더) + 동영상·링크(영상목록.txt) */
+const CMP_DIR='민원상황';
+let CMP_CACHE=null;
 const BUS = {
  title:'2026년 진관산업단지 통근버스 운행 안내', contact:'02-737-7274',
  routes:[
@@ -672,6 +678,7 @@ function renderMain(){ destroyCharts();
   else if(activeKey==='leave') renderLeave();
   else if(activeKey==='celebrate') renderCelebrate();
   else if(RESById[activeKey]) renderResource(activeKey);
+  else if(activeKey==='complaint') renderComplaint();
   else renderNotice();
   renderDrawer();
 }
@@ -757,6 +764,42 @@ function renderResource(key){
      <div class="empty-note">※ 파일·영상목록을 올리고 GitHub Desktop에서 <b>Push</b>하면 실시간으로 반영됩니다.</div>
    </div>`;
   const zone=$('resVid');
+  if(c.videos && c.videos.length) renderVideos(zone, c.videos);
+  else if(c.loaded) zone.innerHTML='';
+  else zone.innerHTML='<div style="font-size:0.78rem;color:var(--text-tertiary);padding:6px 2px">📺 불러오는 중…</div>';
+}
+/* ===== 회사 주변 민원 상황 ===== */
+async function loadComplaint(){
+  const c={loaded:false,posts:[],videos:[],files:[]}; CMP_CACHE=c;
+  try{ const t=await fetchText(CMP_DIR+'/민원목록.txt'); if(t&&t.trim()) c.posts=parseNoticeFile(t); }catch(e){}
+  try{ const v=await fetchText(CMP_DIR+'/영상목록.txt'); if(v&&v.trim()) c.videos=parseVidList(v); }catch(e){}
+  const files=await ghList(CMP_DIR); if(files) c.files=files.filter(f=>!/^(민원목록|영상목록)\.txt$/i.test(f.name));
+  c.loaded=true; if(activeKey==='complaint') renderMain();
+}
+function renderComplaint(){
+  if(!CMP_CACHE){ CMP_CACHE={loaded:false,posts:[],videos:[],files:[]}; loadComplaint(); }
+  const c=CMP_CACHE;
+  const uploadHref='https://github.com/'+GH_OWNER+'/'+GH_REPO+'/upload/'+GH_BRANCH+'/'+encodeURI(CMP_DIR);
+  const posts=c.posts.slice().sort((a,b)=>(a.date||'')<(b.date||'')?1:-1);
+  const postsHTML = !c.loaded ? '<div class="lv-empty">불러오는 중…</div>'
+    : (posts.length ? posts.map(n=>`<div class="ntc static"><div class="nh"><span class="ncat cat-${n.cat||'일반'}">민원</span>${n.pin?'<span class="npin">📌 중요</span>':''}<span class="ntitle">${esc(n.title)}</span>${n.date?`<span class="ndate">${esc(n.date)}</span>`:''}</div><div class="nbody">${esc(n.body)}</div></div>`).join('')
+      : '<div class="lv-empty">등록된 민원 글이 없습니다. 민원목록.txt에 작성해 주세요.</div>');
+  const filesHTML = !c.loaded ? '<div class="file-card"><div class="fi">⏳</div><div class="fn">불러오는 중…</div></div>'
+    : (c.files.length ? c.files.map(f=>`<a class="file-card doc" href="${f.url||('https://github.com/'+GH_OWNER+'/'+GH_REPO+'/blob/'+GH_BRANCH+'/'+encodeURI(f.path))}" target="_blank" rel="noopener">${isImg(f.name)?`<img class="cmp-thumb" src="${f.url||''}" alt="${esc(f.name)}" loading="lazy">`:'<div class="fi">📄</div>'}<div class="fn">${esc(f.name)}</div></a>`).join('')
+      : '<div class="file-card"><div class="fi">🗂️</div><div class="fn">등록된 사진·자료 없음</div><div class="fs">폴더에 올리면 표시</div></div>');
+  $('content').innerHTML=`
+   <div class="section-label"><span class="bar" style="background:#D64545"></span>🏘️ 회사 주변 민원 상황 <span class="sub">— 민원·공지 사항</span></div>
+   <div class="notice-list">${postsHTML}</div>
+   <div class="section-label"><span class="bar" style="background:var(--bus)"></span>동영상 · 링크</div>
+   <div id="cmpVid"></div>
+   <div class="files-panel">
+     <div class="fp-head"><h3>사진 · 자료</h3><span class="tag">파일 ${c.loaded?c.files.length:'…'}건</span>
+       <a class="upload-btn" href="${uploadHref}" target="_blank" rel="noopener">＋ GitHub에 올리기</a></div>
+     <p class="fp-desc"><b>글</b>은 <b>${CMP_DIR}/민원목록.txt</b>, <b>동영상·링크</b>는 <b>${CMP_DIR}/영상목록.txt</b>, <b>사진·문서</b>는 <b>${CMP_DIR}</b> 폴더에 올리면 자동 표시됩니다.</p>
+     <div class="file-grid">${filesHTML}</div>
+     <div class="empty-note">※ 민원 발생 시 글·사진·영상·링크를 올리고 GitHub Desktop에서 <b>Push</b>하면 실시간 반영됩니다.</div>
+   </div>`;
+  const zone=$('cmpVid');
   if(c.videos && c.videos.length) renderVideos(zone, c.videos);
   else if(c.loaded) zone.innerHTML='';
   else zone.innerHTML='<div style="font-size:0.78rem;color:var(--text-tertiary);padding:6px 2px">📺 불러오는 중…</div>';
