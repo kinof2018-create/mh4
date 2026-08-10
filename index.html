@@ -477,7 +477,18 @@ const MENU = [
  {key:'food',   icon:'🍚', name:'식당 메뉴'},
  {key:'leave',  icon:'📅', name:'연차 사용 확인'},
  {key:'celebrate', icon:'🎉', name:'이달의 생일·경조사'},
+ {key:'promo',  icon:'🏢', name:'회사 홍보 자료'},
+ {key:'esg',    icon:'🌱', name:'ESG 관련 자료'},
+ {key:'etcedu', icon:'📚', name:'기타 교육 자료'},
 ];
+/* 자료실 카테고리(동영상 링크 + 파일). 폴더에 올리고 Push하면 동기화됩니다. */
+const RESOURCES=[
+ {key:'promo',  name:'회사 홍보 자료', icon:'🏢', folder:'회사홍보자료', color:'var(--color-primary-500)'},
+ {key:'esg',    name:'ESG 관련 자료', icon:'🌱', folder:'ESG자료',     color:'var(--edu)'},
+ {key:'etcedu', name:'기타 교육 자료', icon:'📚', folder:'기타교육자료', color:'var(--bus)'},
+];
+const RESById={}; RESOURCES.forEach(r=>RESById[r.key]=r);
+let RES_CACHE={};
 const BUS = {
  title:'2026년 진관산업단지 통근버스 운행 안내', contact:'02-737-7274',
  routes:[
@@ -660,6 +671,7 @@ function renderMain(){ destroyCharts();
   else if(activeKey==='food') renderFood();
   else if(activeKey==='leave') renderLeave();
   else if(activeKey==='celebrate') renderCelebrate();
+  else if(RESById[activeKey]) renderResource(activeKey);
   else renderNotice();
   renderDrawer();
 }
@@ -718,6 +730,36 @@ function renderFood(){
       ? `<a class="fd-btn" href="${weekFile.url||('https://github.com/'+GH_OWNER+'/'+GH_REPO+'/blob/'+GH_BRANCH+'/'+encodeURI(weekFile.path))}" target="_blank" rel="noopener">📂 이번 주 주간 식단표 전체보기</a>`
       : `<button class="fd-btn" id="fdWeekBtn" disabled>📂 주간 식단표 준비 중</button>` }
    <p class="lv-note">※ 식단은 GitHub <b>식단/</b> 폴더와 연동됩니다. 오늘 사진은 <b>식단/사진</b>, 텍스트 메뉴는 <b>식단/식단표.txt</b>, 주간표는 <b>식단/주간식단표</b> 폴더에 올리면 자동 표시됩니다.</p>`;
+}
+/* ===== 자료실(회사 홍보 / ESG / 기타 교육) ===== */
+async function loadResource(key){
+  const cfg=RESById[key]; const c={loaded:false,videos:[],files:[]}; RES_CACHE[key]=c;
+  try{ const t=await fetchText(cfg.folder+'/영상목록.txt'); if(t&&t.trim()) c.videos=parseVidList(t); }catch(e){}
+  const files=await ghList(cfg.folder); if(files) c.files=files.filter(f=>!/^영상목록\.txt$/i.test(f.name));
+  c.loaded=true; if(activeKey===key) renderMain();
+}
+function renderResource(key){
+  const cfg=RESById[key];
+  if(!RES_CACHE[key]){ RES_CACHE[key]={loaded:false,videos:[],files:[]}; loadResource(key); }
+  const c=RES_CACHE[key];
+  const uploadHref='https://github.com/'+GH_OWNER+'/'+GH_REPO+'/upload/'+GH_BRANCH+'/'+encodeURI(cfg.folder);
+  const filesHTML = !c.loaded ? '<div class="file-card"><div class="fi">⏳</div><div class="fn">불러오는 중…</div></div>'
+    : (c.files.length ? c.files.map(f=> `<a class="file-card doc" href="${f.url||('https://github.com/'+GH_OWNER+'/'+GH_REPO+'/blob/'+GH_BRANCH+'/'+encodeURI(f.path))}" target="_blank" rel="noopener"><div class="fi">${isImg(f.name)?'🖼️':'📄'}</div><div class="fn">${esc(f.name)}</div></a>`).join('')
+      : '<div class="file-card"><div class="fi">🗂️</div><div class="fn">등록된 자료 없음</div><div class="fs">GitHub에 올리면 표시</div></div>');
+  $('content').innerHTML=`
+   <div class="section-label"><span class="bar" style="background:${cfg.color}"></span>${cfg.icon} ${esc(cfg.name)} <span class="sub">— 영상을 눌러 바로 재생</span></div>
+   <div id="resVid"></div>
+   <div class="files-panel">
+     <div class="fp-head"><h3>첨부 자료</h3><span class="tag">파일 ${c.loaded?c.files.length:'…'}건</span>
+       <a class="upload-btn" href="${uploadHref}" target="_blank" rel="noopener">＋ GitHub에 자료 올리기</a></div>
+     <p class="fp-desc">이 항목의 <b>동영상</b>은 <b>${esc(cfg.folder)}/영상목록.txt</b>에 링크를 추가하고, <b>문서·이미지 파일</b>은 <b>${esc(cfg.folder)}</b> 폴더에 그대로 올리면 자동 표시됩니다.</p>
+     <div class="file-grid">${filesHTML}</div>
+     <div class="empty-note">※ 파일·영상목록을 올리고 GitHub Desktop에서 <b>Push</b>하면 실시간으로 반영됩니다.</div>
+   </div>`;
+  const zone=$('resVid');
+  if(c.videos && c.videos.length) renderVideos(zone, c.videos);
+  else if(c.loaded) zone.innerHTML='';
+  else zone.innerHTML='<div style="font-size:0.78rem;color:var(--text-tertiary);padding:6px 2px">📺 불러오는 중…</div>';
 }
 /* ===== 이달의 생일 · 경조사 축하 ===== */
 let CELEBRATE=null;
