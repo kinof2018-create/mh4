@@ -1,0 +1,41 @@
+name: 카톡 미리보기 자동 생성
+
+# share/미리보기문구.txt 를 수정해서 Push하면
+# 미리보기 이미지(share/og-image.png)와 index.html의 og 태그를 자동으로 다시 만듭니다.
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'share/미리보기문구.txt'
+  workflow_dispatch:   # 수동 실행 버튼도 제공
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 한글 폰트 설치
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
+
+      - name: 파이썬 라이브러리 설치
+        run: pip install pillow numpy
+
+      - name: 미리보기 생성 (이미지 + og 태그)
+        run: python og/generate.py
+
+      - name: 변경사항 커밋 & 푸시
+        run: |
+          git config user.name  "og-preview-bot"
+          git config user.email "og-preview-bot@users.noreply.github.com"
+          git add share/og-image.png index.html
+          if git diff --cached --quiet; then
+            echo "변경 없음 - 커밋 생략"
+          else
+            git commit -m "auto: 카톡 미리보기 갱신 [skip ci]"
+            git push
+          fi
