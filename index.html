@@ -246,6 +246,7 @@ body.dark .lv-info{background:rgba(255,255,255,0.05);}
   font-size:0.72rem;font-weight:600;line-height:1.8;text-align:center;
 }
 .board-foot b{color:#fff;font-weight:800;}
+.board-foot .src-credit{display:block;text-align:right;margin-top:8px;font-size:0.62rem;font-weight:600;color:var(--sidebar-fg-dim);opacity:0.8;}
 
 /* ===== 섹션 히어로(카테고리 헤더) ===== */
 .cat-head{
@@ -424,11 +425,11 @@ body.dark .ntc.mustread{border-color:rgba(214,69,69,0.5);}
   <div class="board-sub">
     <span class="chip"><span class="dot"></span><span id="today">-</span></span>
     <p id="topSub">사내 공지·안전교육·셔틀버스 안내를 한 화면에서 확인하세요.</p>
-    <button class="print-btn" id="foodBtn">🍱 식당 메뉴</button>
+    <a class="print-btn" id="govBtn" href="https://welfarego.co.kr/" target="_blank" rel="noopener" style="text-decoration:none">💰 정부 지원금 조회</a>
   </div>
   <nav class="tabbar"><ul class="sb-nav" id="sbNav"></ul></nav>
   <main class="content" id="content"></main>
-  <footer class="board-foot">☎ 셔틀버스 문의 <b>02-737-7274</b><br>(주)삼화당피앤티 · 진관산업단지</footer>
+  <footer class="board-foot">☎ 셔틀버스 문의 <b>02-737-7274</b><br>(주)삼화당피앤티 · 진관산업단지<span class="src-credit">_ 출처 : BUSTUDY 님 제공</span></footer>
   <!-- 우측 슬라이드 전체 메뉴(Side Drawer) -->
   <div class="drawer" id="drawer" aria-hidden="true">
     <div class="drawer-dim" data-dclose="1"></div>
@@ -477,7 +478,7 @@ const MENU = [
  {key:'edu',    icon:'🎓', name:'안전교육'},
  {key:'bus',    icon:'🚌', name:'셔틀버스 안내'},
  {key:'food',   icon:'🍚', name:'식당 메뉴'},
- {key:'leave',  icon:'📅', name:'연차 사용 확인'},
+ {key:'gov',    icon:'💰', name:'정부 지원금 조회', url:'https://welfarego.co.kr/'},
  {key:'celebrate', icon:'🎉', name:'이달의 생일·경조사'},
  {key:'promo',  icon:'🏢', name:'회사 홍보 자료'},
  {key:'esg',    icon:'🌱', name:'ESG 관련 자료'},
@@ -686,10 +687,12 @@ function renderMain(){ destroyCharts();
 function renderDrawer(){
   const nav=$('drawerNav'); if(!nav) return;
   nav.innerHTML = MENU.map(m=>{
-    const badge = m.key==='notice' ? `<span class="pill">${NOTICES.length}</span>` : (m.soon?'<span class="soon">준비 중</span>':'');
-    return `<li class="drawer-item ${m.key===activeKey?'active':''}" data-key="${m.key}"><span class="ic">${m.icon}</span><span>${m.name}</span>${badge}</li>`;
+    const badge = m.key==='notice' ? `<span class="pill">${NOTICES.length}</span>` : (m.url?'<span class="soon">바로가기 ↗</span>':(m.soon?'<span class="soon">준비 중</span>':''));
+    return `<li class="drawer-item ${(!m.url&&m.key===activeKey)?'active':''}" data-key="${m.key}"${m.url?` data-url="${m.url}"`:''}><span class="ic">${m.icon}</span><span>${m.name}</span>${badge}</li>`;
   }).join('');
   nav.querySelectorAll('.drawer-item').forEach(el=>el.addEventListener('click',()=>{
+    const url=el.getAttribute('data-url');
+    if(url){ window.open(url,'_blank','noopener'); closeDrawer(); return; }
     activeKey=el.getAttribute('data-key'); closeDrawer(); renderNav(); renderMain(); try{window.scrollTo(0,0);}catch(e){}
   }));
 }
@@ -1125,7 +1128,6 @@ function openBusPrint(){
 
 /* ===== 공통 이벤트 ===== */
 $('themeBtn').addEventListener('click',()=>{ const d=document.body.classList.toggle('dark'); $('themeBtn').firstChild.nodeValue=d?'☀️ ':'🌙 '; $('themeLabel').textContent=d?'라이트 모드':'다크 모드'; renderMain(); });
-$('foodBtn').addEventListener('click',()=>{ activeKey='food'; renderNav(); renderMain(); try{window.scrollTo(0,0);}catch(e){} });
 $('menuBtn').addEventListener('click', openDrawer);
 $('drawer').querySelectorAll('[data-dclose]').forEach(function(x){ x.addEventListener('click', closeDrawer); });
 document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeDrawer(); });
