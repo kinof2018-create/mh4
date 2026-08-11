@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>카톡 미리보기 만들기 · 삼화당피앤티</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@1.3.9/dist/web/static/pretendard.css" />
+<style>
+  :root{--nv:#1428A0;--nv2:#0F1E78;}
+  *{box-sizing:border-box;} body{margin:0;font-family:'Pretendard',sans-serif;background:#EEF0F5;color:#111;line-height:1.6;}
+  .wrap{max-width:1000px;margin:0 auto;padding:20px 16px 60px;}
+  h1{font-size:1.3rem;font-weight:900;margin:14px 0 4px;}
+  .sub{color:#5A5F6E;font-size:.9rem;margin:0 0 18px;}
+  .card{background:#fff;border:1px solid #E1E4EC;border-radius:14px;padding:18px 18px;box-shadow:0 4px 14px rgba(16,24,40,.05);margin-bottom:16px;}
+  label{display:block;font-weight:800;font-size:.9rem;margin:10px 0 6px;}
+  input[type=text],textarea{width:100%;border:1px solid #C4C9D6;border-radius:10px;padding:11px 13px;font:600 .95rem 'Pretendard',sans-serif;color:#111;}
+  textarea{min-height:120px;resize:vertical;line-height:1.7;}
+  .cats{display:flex;gap:8px;flex-wrap:wrap;}
+  .cat{cursor:pointer;border:1px solid #C4C9D6;background:#fff;border-radius:9999px;padding:8px 15px;font-weight:800;font-size:.85rem;color:#5A5F6E;}
+  .cat.on{color:#fff;border-color:transparent;}
+  .cat[data-c="안전"].on{background:#D64545;} .cat[data-c="총무"].on{background:#1B63D6;} .cat[data-c="교육"].on{background:#2E9E5B;} .cat[data-c="인사"].on{background:#8A5AD6;} .cat[data-c="일반"].on{background:#5A5F6E;}
+  .preview{width:100%;border-radius:12px;border:1px solid #E1E4EC;display:block;box-shadow:0 6px 20px rgba(16,24,40,.12);}
+  .btn{display:inline-flex;align-items:center;gap:8px;cursor:pointer;border:0;border-radius:10px;padding:14px 20px;font:900 1rem 'Pretendard',sans-serif;color:#fff;background:linear-gradient(120deg,#0F1E78,#2645B0);box-shadow:0 4px 12px rgba(20,40,160,.25);}
+  .btn:active{transform:scale(.99);}
+  .hint{font-size:.8rem;color:#5A5F6E;background:#EAF0FF;border:1px solid #C9D8FF;border-radius:10px;padding:12px 14px;line-height:1.7;margin-top:12px;}
+  .hint b{color:#1428A0;}
+  .step{display:flex;gap:10px;margin:8px 0;} .step .n{flex:none;width:26px;height:26px;border-radius:50%;background:#1428A0;color:#fff;font-weight:900;display:grid;place-items:center;font-size:.82rem;}
+  code{background:#EEF0F5;padding:1px 6px;border-radius:5px;font-size:.85em;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🖼️ 카톡 미리보기 만들기</h1>
+  <p class="sub">아래 내용을 입력하면 미리보기 이미지가 실시간으로 만들어집니다. 저장해서 저장소 <code>share/og-image.png</code> 에 덮어쓰고 Push하세요.</p>
+
+  <div class="card">
+    <label>카테고리</label>
+    <div class="cats" id="cats">
+      <button class="cat on" data-c="안전">안전</button>
+      <button class="cat" data-c="총무">총무</button>
+      <button class="cat" data-c="교육">교육</button>
+      <button class="cat" data-c="인사">인사</button>
+      <button class="cat" data-c="일반">일반</button>
+    </div>
+    <label>제목</label>
+    <input type="text" id="title" value="소방 작동 점검 실시 안내" maxlength="40" />
+    <label>내용 (한 줄에 한 문장 · 아래로 갈수록 흐려집니다)</label>
+    <textarea id="body">2026년 8월 12일(수) 소방 작동 점검을 실시합니다.
+대상: 회사 건물 전체 · 점검 중 간헐적 싸이렌 발생 예정.
+1년 1회 필수 점검이오니 양해 부탁드립니다.
+자세한 내용은 아래에서 확인해 주세요.</textarea>
+  </div>
+
+  <div class="card">
+    <label>미리보기</label>
+    <canvas id="cv" width="1200" height="630" class="preview"></canvas>
+    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <button class="btn" id="save">⬇️ og-image.png 저장</button>
+      <span style="font-size:.85rem;color:#5A5F6E">저장 후 저장소 <b>share</b> 폴더의 og-image.png 를 이 파일로 교체하고 Push</span>
+    </div>
+    <div class="hint">
+      <div class="step"><div class="n">1</div><div>위 칸의 <b>제목·내용</b>을 수정/삭제/편집합니다.</div></div>
+      <div class="step"><div class="n">2</div><div><b>og-image.png 저장</b> 버튼 → 이미지가 다운로드됩니다.</div></div>
+      <div class="step"><div class="n">3</div><div>저장소 <code>share/og-image.png</code> 를 방금 파일로 <b>덮어쓰고 GitHub Desktop에서 Push</b>.</div></div>
+      <div class="step"><div class="n">4</div><div>카톡은 미리보기를 캐시하니, <code>developers.kakao.com/tool/clear/og</code> 에서 링크 캐시 초기화 후 붙여넣기.</div></div>
+      ※ 대시보드(사내 안내판)에는 아무 변화가 없고, 카톡에 링크를 올렸을 때 보이는 미리보기만 바뀝니다. 링크를 누르면 대시보드로 연결됩니다.
+    </div>
+  </div>
+</div>
+
+<script>
+const LOGO_SRC = "data:image/png;base64,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";
+const CATCOL = {"안전":"#D64545","총무":"#1B63D6","교육":"#2E9E5B","인사":"#8A5AD6","일반":"#5A5F6E"};
+let cat="안전";
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const W=1200,H=630;
+const logo=new Image(); let logoReady=false;
+logo.onload=()=>{logoReady=true; draw();};
+logo.src=LOGO_SRC;
+
+function lerp(a,b,t){return Math.round(a+(b-a)*t);}
+function bgcol(y){const t=y/H; return [lerp(10,20,t),lerp(23,40,t),lerp(88,160,t)];}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+function draw(){
+  // bg gradient
+  for(let y=0;y<H;y++){const c=bgcol(y);ctx.fillStyle='rgb('+c[0]+','+c[1]+','+c[2]+')';ctx.fillRect(0,y,W,1);}
+  // accent circle
+  ctx.fillStyle='rgb(38,69,176)';ctx.beginPath();ctx.arc(W-10,-30,230,0,Math.PI*2);ctx.fill();
+  // logo
+  if(logoReady){const lh=104,lw=logo.width*lh/logo.height;ctx.drawImage(logo,80,74,lw,lh);}
+  ctx.textBaseline='top';
+  // accent bar + brand
+  ctx.fillStyle='#4ADE80';rr(84,198,66,16,8);ctx.fill();
+  ctx.fillStyle='rgb(205,214,240)';ctx.font='700 34px Pretendard, "Malgun Gothic", sans-serif';
+  ctx.fillText('사내 안내문  ·  NOTICE BOARD',166,186);
+  // chip + title
+  ctx.font='800 24px Pretendard, "Malgun Gothic", sans-serif';
+  const cw=ctx.measureText(cat).width+44;
+  ctx.fillStyle=CATCOL[cat];rr(84,250,cw,40,20);ctx.fill();
+  ctx.fillStyle='#fff';ctx.fillText(cat,84+22,257);
+  ctx.font='800 34px Pretendard, "Malgun Gothic", sans-serif';
+  ctx.fillText(document.getElementById('title').value,84+cw+16,252);
+  // body
+  const shades=['#FFFFFF','rgb(235,240,252)','rgb(225,232,248)','rgb(210,218,240)','rgb(196,206,232)'];
+  const lines=document.getElementById('body').value.split('\n').filter(l=>l.trim()!=='').slice(0,5);
+  ctx.font='700 30px Pretendard, "Malgun Gothic", sans-serif';
+  let y=320;
+  lines.forEach((ln,i)=>{ctx.fillStyle=shades[Math.min(i,4)];ctx.fillText(ln,84,y);y+=52;});
+  // fade overlay (아래로 갈수록 흐려짐)
+  const y0=300,y1=566; const cTop=bgcol(y0),cBot=bgcol(y1);
+  const g=ctx.createLinearGradient(0,y0,0,y1);
+  g.addColorStop(0,'rgba('+cTop[0]+','+cTop[1]+','+cTop[2]+',0)');
+  g.addColorStop(0.55,'rgba('+cBot[0]+','+cBot[1]+','+cBot[2]+',0.35)');
+  g.addColorStop(1,'rgba('+cBot[0]+','+cBot[1]+','+cBot[2]+',0.97)');
+  ctx.fillStyle=g;ctx.fillRect(0,y0,W,y1-y0);
+}
+
+document.getElementById('cats').addEventListener('click',e=>{
+  const b=e.target.closest('.cat'); if(!b)return;
+  document.querySelectorAll('.cat').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); cat=b.getAttribute('data-c'); draw();
+});
+document.getElementById('title').addEventListener('input',draw);
+document.getElementById('body').addEventListener('input',draw);
+document.getElementById('save').addEventListener('click',()=>{
+  cv.toBlob(function(blob){
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='og-image.png';a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  },'image/png');
+});
+// draw when fonts ready
+if(document.fonts&&document.fonts.ready){document.fonts.ready.then(draw);}
+setTimeout(draw,400); draw();
+</script>
+</body>
+</html>
