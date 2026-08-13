@@ -15,7 +15,7 @@
 <meta property="og:site_name" content="(주)삼화당피앤티 사내 안내문" />
 <meta property="og:title" content="📢 [삼화당피앤티] 소방 작동 점검 실시 안내" />
 <meta property="og:description" content="2026년 8월 12일(수) 소방 작동 점검을 실시합니다. 대상: 회사 건물 전체 · 점검 중 간헐적 싸이렌 발생 예정." />
-<meta property="og:image" content="https://kinof2018-create.github.io/mh4/share/og-image.png" />
+<meta property="og:image" content="https://kinof2018-create.github.io/mh4/share/og-image.png?v=f7b20303ad" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta property="og:url" content="https://kinof2018-create.github.io/mh4/" />
@@ -119,6 +119,17 @@ body{font-family:var(--font);background:var(--bg-subtle);color:var(--text-primar
 .soon-wrap .si{font-size:46px;}
 .soon-wrap h3{margin:12px 0 6px;font-size:1.15rem;font-weight:900;}
 .soon-wrap p{margin:0;font-size:0.86rem;font-weight:600;color:var(--text-tertiary);line-height:1.7;}
+/* FSC 자료 (비밀번호 진입) */
+.fsc-lock{text-align:center;padding:34px 22px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);max-width:360px;margin:6px auto;}
+.fsc-lock .fl-ic{font-size:42px;}
+.fsc-lock h3{margin:10px 0 6px;font-size:1.1rem;font-weight:900;}
+.fsc-lock p{margin:0 0 16px;font-size:0.84rem;font-weight:600;color:var(--text-tertiary);line-height:1.6;}
+.fsc-lock input{width:100%;text-align:center;letter-spacing:0.3em;font:800 1.1rem var(--font);padding:13px;border:1px solid var(--border-strong);border-radius:var(--radius-md);background:var(--bg-base);color:var(--text-primary);}
+.fsc-btn{width:100%;margin-top:12px;cursor:pointer;border:0;border-radius:var(--radius-md);padding:14px;font:800 0.95rem var(--font);color:#fff;background:linear-gradient(120deg,#1F7A44,#2E9E5B);box-shadow:var(--shadow-sm);}
+.fsc-btn:active{transform:scale(0.99);}
+.fsc-err{margin-top:10px;font-size:0.78rem;font-weight:700;color:#D64545;}
+.fsc-note{background:var(--bg-elevated);border:1px solid var(--border-default);border-left:4px solid var(--edu);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:var(--shadow-sm);font-size:0.9rem;font-weight:500;color:var(--text-secondary);line-height:1.75;white-space:pre-line;}
+.drawer-item .lockbadge{margin-left:auto;font-size:0.8rem;}
 /* ===== 연차/연휴 캘린더 ===== */
 .lv-hero{display:flex;align-items:center;gap:13px;padding:18px;margin-bottom:14px;border-radius:var(--radius-xl);color:#fff;box-shadow:var(--shadow-card);background:linear-gradient(135deg,var(--color-primary-700),var(--color-primary-500) 70%,#2645B0 150%);}
 .lv-hero .lv-ic{width:48px;height:48px;border-radius:13px;flex:none;display:grid;place-items:center;font-size:25px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.28);}
@@ -484,6 +495,7 @@ const MENU = [
  {key:'esg',    icon:'🌱', name:'ESG 관련 자료'},
  {key:'etcedu', icon:'📚', name:'기타 교육 자료'},
  {key:'complaint', icon:'🏘️', name:'회사 주변 민원 상황'},
+ {key:'fsc', icon:'🌲', name:'FSC 산림 인증 관련 자료', locked:true},
 ];
 /* 자료실 카테고리(동영상 링크 + 파일). 폴더에 올리고 Push하면 동기화됩니다. */
 const RESOURCES=[
@@ -496,6 +508,17 @@ let RES_CACHE={};
 /* 회사 주변 민원 상황: 글(민원목록.txt) + 사진·문서(폴더) + 동영상·링크(영상목록.txt) */
 const CMP_DIR='민원상황';
 let CMP_CACHE=null;
+/* FSC 산림 인증 관련 자료 (비밀번호 진입). 각 하위폴더에 파일 + 주요내용.txt 를 올리면 연동됩니다. */
+const FSC_DIR='FSC산림인증';
+const FSC_PW='0401';
+const FSC_SUBS=[
+ {name:'FSC 상표 디자인 관련 정보', folder:'FSC상표디자인'},
+ {name:'공급업체 정보',            folder:'공급업체정보'},
+ {name:'관련 양식',                folder:'관련양식'},
+ {name:'FSC 정책 요구사항',        folder:'FSC정책요구사항'},
+ {name:'기타 사항',                folder:'기타사항'},
+];
+let fscUnlocked=false, fscIdx=0, FSC_CACHE={};
 const BUS = {
  title:'2026년 진관산업단지 통근버스 운행 안내', contact:'02-737-7274',
  routes:[
@@ -680,6 +703,7 @@ function renderMain(){ destroyCharts();
   else if(activeKey==='celebrate') renderCelebrate();
   else if(RESById[activeKey]) renderResource(activeKey);
   else if(activeKey==='complaint') renderComplaint();
+  else if(activeKey==='fsc') renderFsc();
   else renderNotice();
   renderDrawer();
 }
@@ -687,7 +711,7 @@ function renderMain(){ destroyCharts();
 function renderDrawer(){
   const nav=$('drawerNav'); if(!nav) return;
   nav.innerHTML = MENU.map(m=>{
-    const badge = m.key==='notice' ? `<span class="pill">${NOTICES.length}</span>` : (m.url?'<span class="soon">바로가기 ↗</span>':(m.soon?'<span class="soon">준비 중</span>':''));
+    const badge = m.key==='notice' ? `<span class="pill">${NOTICES.length}</span>` : (m.url?'<span class="soon">바로가기 ↗</span>':(m.locked?'<span class="lockbadge">🔒</span>':(m.soon?'<span class="soon">준비 중</span>':'')));
     return `<li class="drawer-item ${(!m.url&&m.key===activeKey)?'active':''}" data-key="${m.key}"${m.url?` data-url="${m.url}"`:''}><span class="ic">${m.icon}</span><span>${m.name}</span>${badge}</li>`;
   }).join('');
   nav.querySelectorAll('.drawer-item').forEach(el=>el.addEventListener('click',()=>{
@@ -806,6 +830,57 @@ function renderComplaint(){
   if(c.videos && c.videos.length) renderVideos(zone, c.videos);
   else if(c.loaded) zone.innerHTML='';
   else zone.innerHTML='<div style="font-size:0.78rem;color:var(--text-tertiary);padding:6px 2px">📺 불러오는 중…</div>';
+}
+/* ===== FSC 산림 인증 관련 자료 (비밀번호 진입) ===== */
+async function loadFscSub(idx){
+  const sub=FSC_SUBS[idx]; const dir=FSC_DIR+'/'+sub.folder;
+  const c={loaded:false,text:'',files:[]}; FSC_CACHE[idx]=c;
+  try{ const t=await fetchText(dir+'/주요내용.txt'); if(t&&t.trim()) c.text=t.replace(/\r/g,''); }catch(e){}
+  const files=await ghList(dir); if(files) c.files=files.filter(f=>!/^주요내용\.txt$/i.test(f.name));
+  c.loaded=true; if(activeKey==='fsc'&&fscUnlocked&&fscIdx===idx) renderFsc();
+}
+function renderFsc(){
+  if(!fscUnlocked){
+    $('content').innerHTML=`
+     <div class="section-label"><span class="bar" style="background:#1F7A44"></span>🌲 FSC 산림 인증 관련 자료</div>
+     <div class="fsc-lock">
+       <div class="fl-ic">🔒</div>
+       <h3>비밀번호 입력</h3>
+       <p>이 항목은 담당자 전용입니다.<br>비밀번호를 입력해 주세요.</p>
+       <input id="fscPw" type="password" inputmode="numeric" placeholder="비밀번호" autocomplete="off">
+       <button class="fsc-btn" id="fscGo">확인</button>
+       <div class="fsc-err" id="fscErr" style="display:none">비밀번호가 올바르지 않습니다.</div>
+     </div>`;
+    const go=()=>{ const v=($('fscPw').value||'').trim(); if(v===FSC_PW){ fscUnlocked=true; renderFsc(); } else { const e=$('fscErr'); if(e)e.style.display='block'; const i=$('fscPw'); if(i){i.value='';i.focus();} } };
+    $('fscGo').addEventListener('click',go);
+    $('fscPw').addEventListener('keydown',e=>{ if(e.key==='Enter') go(); });
+    setTimeout(()=>{ const i=$('fscPw'); if(i) i.focus(); },50);
+    return;
+  }
+  const sub=FSC_SUBS[fscIdx];
+  if(!FSC_CACHE[fscIdx]){ FSC_CACHE[fscIdx]={loaded:false,text:'',files:[]}; loadFscSub(fscIdx); }
+  const c=FSC_CACHE[fscIdx];
+  const uploadHref='https://github.com/'+GH_OWNER+'/'+GH_REPO+'/upload/'+GH_BRANCH+'/'+encodeURI(FSC_DIR+'/'+sub.folder);
+  const filesHTML = !c.loaded ? '<div class="file-card"><div class="fi">⏳</div><div class="fn">불러오는 중…</div></div>'
+    : (c.files.length ? c.files.map(f=>`<a class="file-card doc" href="${f.url||('https://github.com/'+GH_OWNER+'/'+GH_REPO+'/blob/'+GH_BRANCH+'/'+encodeURI(f.path))}" target="_blank" rel="noopener"><div class="fi">${isImg(f.name)?'🖼️':'📄'}</div><div class="fn">${esc(f.name)}</div></a>`).join('')
+      : '<div class="file-card"><div class="fi">🗂️</div><div class="fn">등록된 파일 없음</div><div class="fs">폴더에 올리면 표시</div></div>');
+  const noteHTML = !c.loaded ? '<div class="lv-empty">불러오는 중…</div>'
+    : (c.text.trim() ? '<div class="fsc-note">'+esc(c.text.trim())+'</div>' : '<div class="lv-empty">등록된 주요 내용이 없습니다. 주요내용.txt에 작성해 주세요.</div>');
+  $('content').innerHTML=`
+   <div class="section-label"><span class="bar" style="background:#1F7A44"></span>🌲 FSC 산림 인증 관련 자료 <span class="sub">— 담당자 전용</span></div>
+   <div class="section-label"><span class="bar" style="background:#1F7A44"></span>📌 주요 내용 <span class="sub">— ${esc(sub.name)}</span></div>
+   ${noteHTML}
+   <div class="sub-grid" id="fscGrid">
+     ${FSC_SUBS.map((s,i)=>`<div class="sub-card ${i===fscIdx?'active':''}" data-idx="${i}"><div class="nm"><span class="num">${i+1}</span>${esc(s.name)}</div><div class="meta">주요내용 · 첨부파일</div></div>`).join('')}
+   </div>
+   <div class="files-panel">
+     <div class="fp-head"><h3>첨부 파일</h3><span class="tag">파일 ${c.loaded?c.files.length:'…'}건</span>
+       <a class="upload-btn" href="${uploadHref}" target="_blank" rel="noopener">＋ GitHub에 올리기</a></div>
+     <p class="fp-desc">이 항목의 <b>주요 내용</b>은 <b>${esc(FSC_DIR)}/${esc(sub.folder)}/주요내용.txt</b>, <b>파일</b>은 <b>${esc(FSC_DIR)}/${esc(sub.folder)}</b> 폴더에 올리면 자동 표시됩니다.</p>
+     <div class="file-grid">${filesHTML}</div>
+     <div class="empty-note">※ 파일·주요내용을 올리고 GitHub Desktop에서 <b>Push</b>하면 실시간 반영됩니다.</div>
+   </div>`;
+  $('fscGrid').querySelectorAll('.sub-card').forEach(el=>el.addEventListener('click',()=>{ fscIdx=parseInt(el.getAttribute('data-idx'),10); renderFsc(); }));
 }
 /* ===== 이달의 생일 · 경조사 축하 ===== */
 let CELEBRATE=null;
