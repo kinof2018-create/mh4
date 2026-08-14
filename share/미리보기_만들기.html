@@ -31,7 +31,7 @@
 <body>
 <div class="wrap">
   <h1>🖼️ 카톡 미리보기 만들기</h1>
-  <p class="sub">아래 내용을 입력하면 미리보기 이미지가 실시간으로 만들어집니다. 저장해서 저장소 <code>share/og-image.png</code> 에 덮어쓰고 Push하세요.</p>
+  <p class="sub">아래 내용을 입력하면 미리보기가 실시간으로 만들어집니다. <b>저장</b>을 누르면 저장소의 <code>share/미리보기문구.txt</code> 를 덮어쓰고, Push하면 GitHub가 이미지·제목·설명을 자동으로 새로 만듭니다.</p>
 
   <div class="card">
     <label>카테고리</label>
@@ -43,36 +43,34 @@
       <button class="cat" data-c="일반">일반</button>
     </div>
     <label>제목</label>
-    <input type="text" id="title" value="소방 작동 점검 실시 안내" maxlength="40" />
+    <input type="text" id="title" value="연휴 기간 화재 및 안전사고 예방관련 안내" maxlength="40" />
     <label>내용 (한 줄에 한 문장 · 아래로 갈수록 흐려집니다)</label>
-    <textarea id="body">연휴 기간 화재 및 안전사고 예방관련 안내 
-삼화당피앤티 가족 여러분. 
-       뜻깊고 편안한 3일간의 황금연휴 보내시길 바랍니다. 
-       연휴 기간 화재 및 안전사고 예방을 위해 퇴근 전 미사용 전기 플러그 차단, 가스 밸브 잠금, 창문·출입문 잠금 상태를 다시 한번 꼭 점검해 주시기 바랍니다. 
-       작은 관심과 점검이 우리 사업장의 안전을 지킵니다. 
-       가족들과 함께 안락하고 건강한 연휴 보내시고 복귀하시길 바랍니다. 감사합니다.
-자세한 내용은 아래에서 확인해 주세요.</textarea>
+    <textarea id="body">삼화당피앤티 가족 여러분.
+뜻깊고 편안한 3일간의 황금연휴 보내시길 바랍니다.
+연휴 기간 화재 및 안전사고 예방을 위해 퇴근 전 미사용 전기 플러그 차단, 가스 밸브 잠금, 창문·출입문 잠금 상태를 다시 한번 꼭 점검해 주시기 바랍니다.
+작은 관심과 점검이 우리 사업장의 안전을 지킵니다.
+가족들과 함께 안락하고 건강한 연휴 보내시고 복귀하시길 바랍니다. 감사합니다.</textarea>
   </div>
 
   <div class="card">
     <label>미리보기</label>
     <canvas id="cv" width="1200" height="630" class="preview"></canvas>
     <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-      <button class="btn" id="save">⬇️ og-image.png 저장</button>
-      <span style="font-size:.85rem;color:#5A5F6E">저장 후 저장소 <b>share</b> 폴더의 og-image.png 를 이 파일로 교체하고 Push</span>
+      <button class="btn" id="save">💾 미리보기 내용 저장 (미리보기문구.txt 덮어쓰기)</button>
+      <span style="font-size:.85rem;color:#5A5F6E">저장 후 <b>GitHub Desktop에서 Push</b> 하면 자동으로 반영됩니다</span>
     </div>
     <div class="hint">
-      <div class="step"><div class="n">1</div><div>위 칸의 <b>제목·내용</b>을 수정/삭제/편집합니다.</div></div>
-      <div class="step"><div class="n">2</div><div><b>og-image.png 저장</b> 버튼 → 이미지가 다운로드됩니다.</div></div>
-      <div class="step"><div class="n">3</div><div>저장소 <code>share/og-image.png</code> 를 방금 파일로 <b>덮어쓰고 GitHub Desktop에서 Push</b>.</div></div>
-      <div class="step"><div class="n">4</div><div>카톡은 미리보기를 캐시하니, <code>developers.kakao.com/tool/clear/og</code> 에서 링크 캐시 초기화 후 붙여넣기.</div></div>
-      ※ 대시보드(사내 안내판)에는 아무 변화가 없고, 카톡에 링크를 올렸을 때 보이는 미리보기만 바뀝니다. 링크를 누르면 대시보드로 연결됩니다.
+      <div class="step"><div class="n">1</div><div>위 칸의 <b>카테고리·제목·내용</b>을 편집합니다.</div></div>
+      <div class="step"><div class="n">2</div><div><b>미리보기 내용 저장</b> 버튼 → 저장 창이 뜨면 저장소 <code>share</code> 폴더의 <b>미리보기문구.txt 를 선택해 덮어쓰기</b> 합니다.</div></div>
+      <div class="step"><div class="n">3</div><div><b>GitHub Desktop에서 Push</b> → 1~2분 뒤 GitHub가 이미지·제목·설명을 자동으로 새로 만듭니다.</div></div>
+      <div class="step"><div class="n">4</div><div>카톡은 미리보기를 저장(캐시)하니, <code>developers.kakao.com/tool/clear/og</code> 에서 링크를 넣고 <b>초기화</b> 후 붙여넣으세요.</div></div>
+      ※ 대시보드(사내 안내판)에는 변화가 없고, 카톡에 링크를 올렸을 때 보이는 미리보기 카드만 바뀝니다.
     </div>
   </div>
 </div>
 
 <script>
-const LOGO_SRC = "data:image/png;base64,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";
+const LOGO_SRC = "data:image/png;base64,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";
 const CATCOL = {"안전":"#D64545","총무":"#1B63D6","교육":"#2E9E5B","인사":"#8A5AD6","일반":"#5A5F6E"};
 let cat="안전";
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -126,11 +124,44 @@ document.getElementById('cats').addEventListener('click',e=>{
 });
 document.getElementById('title').addEventListener('input',draw);
 document.getElementById('body').addEventListener('input',draw);
-document.getElementById('save').addEventListener('click',()=>{
-  cv.toBlob(function(blob){
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='og-image.png';a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
-  },'image/png');
+
+// ── 저장: '미리보기문구.txt' 내용을 만들어 저장(덮어쓰기) ─────────────
+function buildTxt(){
+  const title=document.getElementById('title').value.trim();
+  const bodyLines=document.getElementById('body').value.split('\n').map(l=>l.trim()).filter(l=>l!=='');
+  let t='';
+  t+='# ================================================================\n';
+  t+='#  카톡 미리보기(공유 카드) 문구  ★\'미리보기 만들기\' 도구가 저장한 파일★\n';
+  t+='#  · 이 파일을 Push하면 GitHub가 미리보기 이미지·제목·설명을 다시 만듭니다.\n';
+  t+='#  · # 로 시작하는 줄은 메모이며 반영되지 않습니다.\n';
+  t+='#  · 카테고리: 안전 / 총무 / 교육 / 인사 / 일반  (색상 태그)\n';
+  t+='# ================================================================\n';
+  t+='카테고리: '+cat+'\n';
+  t+='제목: '+title+'\n';
+  t+='내용: '+(bodyLines[0]||'')+'\n';
+  for(let i=1;i<bodyLines.length;i++) t+=bodyLines[i]+'\n';
+  return t;
+}
+
+document.getElementById('save').addEventListener('click', async ()=>{
+  const text=buildTxt();
+  const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
+  // 1) 최신 브라우저: '다른 이름으로 저장' 창 → 기존 미리보기문구.txt 를 직접 덮어쓰기
+  if(window.showSaveFilePicker){
+    try{
+      const handle=await window.showSaveFilePicker({
+        suggestedName:'미리보기문구.txt',
+        types:[{description:'텍스트 파일', accept:{'text/plain':['.txt']}}]
+      });
+      const w=await handle.createWritable();
+      await w.write(blob); await w.close();
+      alert('저장 완료!\n\n이제 GitHub Desktop에서 Push 하세요.\n1~2분 뒤 미리보기 이미지·제목·설명이 자동으로 바뀝니다.');
+      return;
+    }catch(e){ if(e && e.name==='AbortError') return; /* 취소 시 조용히 종료 */ }
+  }
+  // 2) 미지원 브라우저: 다운로드로 대체 (내려받은 파일로 share/미리보기문구.txt 를 교체)
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='미리보기문구.txt';a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 });
 // draw when fonts ready
 if(document.fonts&&document.fonts.ready){document.fonts.ready.then(draw);}

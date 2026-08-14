@@ -7,7 +7,7 @@
   2) index.html 의 og:title / og:description 을 갱신합니다.
 GitHub Actions 에서 Push 시 자동 실행됩니다.
 """
-import os, re, glob, html
+import os, re, glob, html, hashlib
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
@@ -114,6 +114,13 @@ def update_index(title, body):
     s=open(INDEX,encoding="utf-8").read()
     og_title = html.escape("📢 [삼화당피앤티] "+title, quote=True)
     og_desc  = html.escape(" ".join(body[:2])[:120], quote=True)
+    # ★ 이미지 캐시 무력화: 이미지가 바뀌면 og:image 주소도 바뀌도록 내용 해시를 ?v= 로 붙임
+    ver = hashlib.md5(open(OUT,'rb').read()).hexdigest()[:10]
+    mimg = re.search(r'<meta property="og:image" content="([^"]*)"', s)
+    if mimg:
+        base = mimg.group(1).split('?')[0]
+        newimg = html.escape(base+'?v='+ver, quote=True)
+        s=re.sub(r'(<meta property="og:image" content=")[^"]*(")', lambda m:m.group(1)+newimg+m.group(2), s, count=1)
     s=re.sub(r'(<meta property="og:title" content=")[^"]*(")',      lambda m:m.group(1)+og_title+m.group(2), s, count=1)
     s=re.sub(r'(<meta property="og:description" content=")[^"]*(")',lambda m:m.group(1)+og_desc +m.group(2), s, count=1)
     open(INDEX,"w",encoding="utf-8").write(s)
