@@ -7,6 +7,7 @@ on:
     branches: [ main ]
     paths:
       - 'share/미리보기문구.txt'
+      - 'index.html'
   workflow_dispatch:   # 수동 실행 버튼도 제공
 
 permissions:
