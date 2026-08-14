@@ -18,4 +18,6 @@
 3. GitHub Desktop 에서 Push
 4. 1~2분 뒤 이미지·제목·설명이 자동 반영
 5. 카톡은 캐시가 있으니 developers.kakao.com/tool/clear/og 에서
-   링크(https://kinof2018-create.github.io/mh4/) 초기화 후 붙여넣기
+   링크(https://kinof2018-create.github.io/mh4/???) 초기화 후 붙여넣기  
+
+*****  링크 주소 붙여넣기 사용시  / ??? 는 임의 문자 사용해서 할것 

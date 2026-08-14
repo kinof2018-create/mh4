@@ -13,8 +13,8 @@
      ▶ 카드 이미지는 share/og-image.png 입니다. 교체하려면 같은 이름으로 덮어쓰세요. -->
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="(주)삼화당피앤티 사내 안내문" />
-<meta property="og:title" content="📢 [삼화당피앤티] 연휴 기간 화재 및 안전사고 예방관련 안내" />
-<meta property="og:description" content="삼화당피앤티 가족 여러분. 뜻깊고 편안한 3일간의 황금연휴 보내시길 바랍니다." />
+<meta property="og:title" content="📢 [삼화당피앤티] 소방 작동 점검 실시 안내" />
+<meta property="og:description" content="2026년 8월 12일(수) 소방 작동 점검을 실시합니다. 대상: 회사 건물 전체 · 점검 중 간헐적 싸이렌 발생 예정." />
 <meta property="og:image" content="https://kinof2018-create.github.io/mh4/share/og-image.png?v=f7b20303ad" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
@@ -128,7 +128,11 @@ body{font-family:var(--font);background:var(--bg-subtle);color:var(--text-primar
 .fsc-btn{width:100%;margin-top:12px;cursor:pointer;border:0;border-radius:var(--radius-md);padding:14px;font:800 0.95rem var(--font);color:#fff;background:linear-gradient(120deg,#1F7A44,#2E9E5B);box-shadow:var(--shadow-sm);}
 .fsc-btn:active{transform:scale(0.99);}
 .fsc-err{margin-top:10px;font-size:0.78rem;font-weight:700;color:#D64545;}
-.fsc-note{background:var(--bg-elevated);border:1px solid var(--border-default);border-left:4px solid var(--edu);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:var(--shadow-sm);font-size:0.9rem;font-weight:500;color:var(--text-secondary);line-height:1.75;white-space:pre-line;}
+.fsc-note{background:var(--bg-elevated);border:1px solid var(--border-default);border-left:4px solid var(--edu);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:var(--shadow-sm);}
+.fsc-note .fn-head{font-size:0.98rem;font-weight:800;color:var(--text-primary);line-height:1.7;white-space:pre-line;}
+.fsc-note .fn-full{margin-top:12px;padding-top:12px;border-top:1px dashed var(--border-default);font-size:0.9rem;font-weight:500;color:var(--text-secondary);line-height:1.85;white-space:pre-line;}
+.fsc-note .fn-more{margin-top:12px;border:0;background:transparent;cursor:pointer;font:800 0.8rem var(--font);color:var(--edu);padding:0;}
+.fsc-note .fn-more:active{transform:scale(0.98);}
 .drawer-item .lockbadge{margin-left:auto;font-size:0.8rem;}
 /* ===== 연차/연휴 캘린더 ===== */
 .lv-hero{display:flex;align-items:center;gap:13px;padding:18px;margin-bottom:14px;border-radius:var(--radius-xl);color:#fff;box-shadow:var(--shadow-card);background:linear-gradient(135deg,var(--color-primary-700),var(--color-primary-500) 70%,#2645B0 150%);}
@@ -864,8 +868,20 @@ function renderFsc(){
   const filesHTML = !c.loaded ? '<div class="file-card"><div class="fi">⏳</div><div class="fn">불러오는 중…</div></div>'
     : (c.files.length ? c.files.map(f=>`<a class="file-card doc" href="${f.url||('https://github.com/'+GH_OWNER+'/'+GH_REPO+'/blob/'+GH_BRANCH+'/'+encodeURI(f.path))}" target="_blank" rel="noopener"><div class="fi">${isImg(f.name)?'🖼️':'📄'}</div><div class="fn">${esc(f.name)}</div></a>`).join('')
       : '<div class="file-card"><div class="fi">🗂️</div><div class="fn">등록된 파일 없음</div><div class="fs">폴더에 올리면 표시</div></div>');
-  const noteHTML = !c.loaded ? '<div class="lv-empty">불러오는 중…</div>'
-    : (c.text.trim() ? '<div class="fsc-note">'+esc(c.text.trim())+'</div>' : '<div class="lv-empty">등록된 주요 내용이 없습니다. 주요내용.txt에 작성해 주세요.</div>');
+  let noteHTML;
+  if(!c.loaded){ noteHTML='<div class="lv-empty">불러오는 중…</div>'; }
+  else {
+    // # 로 시작하는 줄(메모) 제거 + 빈 줄 정리
+    const cleaned=String(c.text).replace(/\r/g,'').split('\n').filter(l=>!/^\s*#/.test(l)).join('\n').replace(/\n{3,}/g,'\n\n').trim();
+    if(cleaned){
+      const mm=cleaned.match(/^([\s\S]*?[.．。])\s*([\s\S]*)$/);   // 마침표로 끝나는 첫 문장 = 헤드라인
+      const head=mm?mm[1].trim():cleaned; const rest=mm?(mm[2]||'').trim():'';
+      noteHTML='<div class="fsc-note" id="fscNote">'
+        +'<div class="fn-head">'+esc(head)+'</div>'
+        +(rest?('<div class="fn-full" id="fscFull" style="display:none">'+esc(rest)+'</div><button class="fn-more" id="fscMore">＋ 상세 내용 보기</button>'):'')
+        +'</div>';
+    } else { noteHTML='<div class="lv-empty">등록된 주요 내용이 없습니다. 주요내용.txt에 작성해 주세요.</div>'; }
+  }
   $('content').innerHTML=`
    <div class="section-label"><span class="bar" style="background:#1F7A44"></span>🌲 FSC 산림 인증 관련 자료 <span class="sub">— 담당자 전용</span></div>
    <div class="section-label"><span class="bar" style="background:#1F7A44"></span>📌 주요 내용 <span class="sub">— ${esc(sub.name)}</span></div>
@@ -881,6 +897,7 @@ function renderFsc(){
      <div class="empty-note">※ 파일·주요내용을 올리고 GitHub Desktop에서 <b>Push</b>하면 실시간 반영됩니다.</div>
    </div>`;
   $('fscGrid').querySelectorAll('.sub-card').forEach(el=>el.addEventListener('click',()=>{ fscIdx=parseInt(el.getAttribute('data-idx'),10); renderFsc(); }));
+  const _m=$('fscMore'); if(_m) _m.addEventListener('click',()=>{ const f=$('fscFull'); if(!f)return; const open=f.style.display!=='none'; f.style.display=open?'none':'block'; _m.textContent=open?'＋ 상세 내용 보기':'− 접기'; });
 }
 /* ===== 이달의 생일 · 경조사 축하 ===== */
 let CELEBRATE=null;
