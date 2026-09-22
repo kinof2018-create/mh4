@@ -1,0 +1,1753 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SFACTORY MES 데모 · 기준·생산</title>
+<!--
+================================================================================
+ 삼화당피앤티 SmartMES(SFACTORY) — 전 GNB(기준/수주/자재/생산/출하/품질/경영/설비) 데모
+ 개발버전 : v8.5 · 시스템관리탭 · 2026-09-14
+ v8.5 추가 : 기준관리에 [시스템관리] 그룹 신설 — 자사정보(CmCorp)·사용자관리(CodeUser)·
+             사용자권한등록(PERMISSION)·DB백업(유틸). SFACTORY 기존 테이블 데이터 그대로 반영
+             (신규 테이블/스키마 변경 아님). 좌측 메뉴를 그룹(시스템관리/기준정보관리)으로 구분.
+ v8.4 추가 : 품목 그리드 ↔ 제품정보등록이 하나의 CmMaterial 스토어를 실시간 공유(단일 진실원).
+             제품정보등록 저장/신규/삭제가 품목 그리드에 즉시 반영, 그리드 편집도 폼에 반영.
+ v8.3 추가 : 기준관리 품목에서 [제품정보등록] 클래식 폼(SFACTORY 재현) — 좌측 기준정보관리 버튼열 +
+             제품정보 리스트(회사/제품코드/제품명 필터) + 상세정보 전 필드(품목코드/구분/제품코드/제품명/
+             특이사항/지질/사이즈/접지/절수/제품절수/격벽/태그/양면인쇄/전량납품/종이자재/업체명/인쇄도수/
+             포장박스·단위/제품버전/PO No./비고/사무실메모) + 신규/저장/삭제/닫기. 리스트↔상세 연결,
+             저장 시 CmMaterial 컬럼 payload, 좌측 버튼→해당 기준정보 이동.
+ v8.2 추가 : 생산관리 좌측 하위메뉴(작업지시서출력/품목별·기기별 공정모니터링/기기별 작업이력/
+             태그부착관리/생산실적등록/작업일지/생산실적현황) 8종 활성화. 제네릭 엔진(prodsub)에
+             SmartMES 테이블·FK로 화면 구성(작업지시관리=기존 작업지시등록 불변). 좌측 pills 유지.
+ v8.1 추가 : 실행 시 초기 메인(런처) 화면 표시(v7.7 SFACTORY 스타일 8카테고리 카드),
+             카테고리 클릭 → 해당 업무 모듈로 진입(enterModule), 상단 로고 클릭 → 메인 복귀.
+             (기존 화면/로직 불변 — 진입 흐름만 추가)
+ v8.0 추가 : 수주/자재/출하/품질/경영/설비 6개 GNB 모듈을 제네릭 엔진으로 순차 활성화
+             (마스터 편집 + SmartMES 실제 FK 자식 실시간 연동), 기준관리 저장을 실제
+             Supabase(PostgreSQL) upsert로 연동(⚙ DB설정에서 URL/Key 입력 → 온라인 저장,
+             미설정 시 콘솔 오프라인 저장). 서버측 예시·DDL은 동봉 파일 참조.
+ 목적 : (v7.8) 작업지시등록 빨강 항목 입력 활성화 +
+        (v7.9) 기준관리 활성화 + SmartMES 관계형 DB(62 FK) 연결·연동(Master→자식 드릴다운).
+        상단 GNB 기준관리/생산관리 클릭으로 화면 전환. 실제 실행·조회·검증 가능한 단일 HTML.
+        (기존 작업지시등록 화면/다른 항목 불변 — 뷰 추가 방식)
+ 기준관리 연동(FK) : 거래처→담당자/납품처, 품목→단가/검사규격, 공정→라인→라인조건, 설비→수리/입출.
+        조인키는 SmartMES 원본 FK 그대로(CorpId + 업무키). 저장 시 실 컬럼명 payload(F12).
+ 설계 : 향후 정식 프로그램 연동 대비 — 각 컬럼을 실제 DB 스키마에 매핑(schema-driven),
+        저장 payload는 SmartMES 실 컬럼명으로 생성(콘솔 확인 가능).
+ DB 매핑(원본 SmartMES) :
+   화급→CmMaterial.UrgentYN(BIT)  재단→CmMaterial.CutYN(BIT)  재단절수→(재단 공정 절수)
+   종이/CTP→작업지시 준비상태 플래그  디자인→도안(DesignMemo/디자인 승인) 플래그
+   절수→Cut  제품절수→Cut2  격벽→Wall  태그→(태그부착)  양면인쇄/전량납품/접지→지시옵션
+ 단위환산(계승) : 재단까지 연(連,1연=500장) · 인쇄부터 개(통) · 납품 매
+================================================================================
+-->
+<style>
+  :root{
+    --nav:#1f4e9c; --nav2:#2a5cb8; --band:#3f6fc4; --bg:#eef1f6; --panel:#ffffff;
+    --grid-line:#c3ccdb; --head:#dbe4f3; --head-key:#f4d97a; --head-num:#f6dcc0;
+    --row:#ffffff; --row-alt:#f5f8fd; --row-sel:#cfe0ff; --ink:#12213c; --ink2:#4a5876;
+    --active:#e8340c; --active-soft:#ffe9e4; --ok:#1f8a4c; --btn:#e9eefb;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:"Malgun Gothic","맑은 고딕",system-ui,sans-serif;
+    font-size:12px;color:var(--ink);background:var(--bg)}
+  /* ---------- 상단 브랜드/메뉴바 ---------- */
+  .topbar{display:flex;align-items:center;gap:0;background:linear-gradient(#20509f,#1a4488);
+    color:#fff;height:52px;padding:0 10px}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:19px;
+    background:#fff;color:#1f4e9c;height:100%;padding:0 16px;clip-path:polygon(0 0,100% 0,88% 100%,0 100%)}
+  .brand small{font-size:11px;color:#e2340c;font-weight:700}
+  .gnb{display:flex;gap:26px;margin-left:22px;font-size:15px;font-weight:700}
+  .gnb span{padding:6px 4px;cursor:default;opacity:.92}
+  .gnb span.on{color:#bfe0ff;border-bottom:3px solid #bfe0ff}
+  /* ---------- 레이아웃 ---------- */
+  .wrap{display:grid;grid-template-columns:210px 1fr;height:calc(100% - 52px)}
+  .side{background:linear-gradient(#3a63b4,#2c4f9c);padding:14px 12px;display:flex;flex-direction:column;gap:12px}
+  .side .men{background:linear-gradient(#4f7ad0,#3a63b4);border:1px solid #6f95dd;border-radius:16px;
+    color:#fff;text-align:center;font-weight:800;font-size:14px;padding:12px 6px;box-shadow:0 2px 3px rgba(0,0,0,.2);cursor:default}
+  .side .men.on{background:linear-gradient(#7fb0ff,#4f7ad0);outline:2px solid #cfe0ff}
+  .main{padding:10px 12px;overflow:auto}
+  .tab{display:inline-block;background:#fff;border:1px solid var(--grid-line);border-bottom:none;
+    padding:6px 16px;font-weight:700;color:#1f4e9c;border-radius:6px 6px 0 0}
+  .panelbox{background:var(--panel);border:1px solid var(--grid-line);border-radius:0 6px 6px 6px;padding:10px}
+  /* ---------- 툴바 ---------- */
+  .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .toolbar .lbl{font-weight:800;color:#1f4e9c;display:flex;align-items:center;gap:6px}
+  .toolbar input[type=date],.toolbar select{border:1px solid #9fb0cf;border-radius:4px;padding:4px 6px;font-size:12px;background:#fff}
+  .btn{border:1px solid #9fb0cf;background:linear-gradient(#fbfdff,#e9eefb);border-radius:5px;
+    padding:5px 10px;font-size:12px;cursor:pointer;font-weight:600;color:#243b6b;white-space:nowrap}
+  .btn:hover{background:#dce6fb}
+  .btn.primary{background:linear-gradient(#4f7ad0,#3a63b4);color:#fff;border-color:#3a63b4}
+  .btn.primary:hover{filter:brightness(1.05)}
+  .spacer{flex:1}
+  .caption{font-weight:800;color:#1f4e9c;margin:6px 2px}
+  .legend{font-size:11px;color:var(--active);font-weight:700;display:flex;align-items:center;gap:6px}
+  .legend .sw{display:inline-block;width:12px;height:12px;border:2px dashed var(--active);border-radius:3px;background:var(--active-soft)}
+  /* ---------- 그리드 ---------- */
+  .gridwrap{overflow:auto;border:1px solid var(--grid-line);max-height:52vh}
+  table{border-collapse:collapse;white-space:nowrap;font-size:12px}
+  th,td{border:1px solid var(--grid-line);padding:3px 6px;text-align:center}
+  thead th{position:sticky;top:0;background:var(--head);color:#233a63;font-weight:700;z-index:2}
+  th.key{background:var(--head-key)}
+  th.num{background:var(--head-num)}
+  th.act,td.act{background:var(--active-soft)}
+  thead th.act{background:var(--head-num);box-shadow:inset 0 0 0 2px var(--active)}
+  tbody tr:nth-child(even){background:var(--row-alt)}
+  tbody tr.sel{background:var(--row-sel)!important;outline:2px solid #4f7ad0}
+  td.l{text-align:left}
+  td.r{text-align:right;font-variant-numeric:tabular-nums}
+  td .num-in{width:56px;text-align:right;border:1px solid #e0663f;border-radius:3px;padding:2px 4px;font-size:12px;background:#fff}
+  td input[type=checkbox]{width:15px;height:15px;accent-color:#1f4e9c;cursor:pointer}
+  td.act input[type=checkbox]{accent-color:var(--active)}
+  .ro{color:#5b6b8c}
+  tbody tr{cursor:pointer}
+  /* ---------- 하단 detail ---------- */
+  .detailhead{display:flex;align-items:center;gap:10px;margin:12px 2px 6px}
+  .detailhead b{color:#1f4e9c}
+  .pill{font-size:11px;background:#eef3ff;border:1px solid #b9caea;border-radius:20px;padding:2px 9px;color:#2b4788}
+  /* ---------- toast ---------- */
+  #toast{position:fixed;right:18px;bottom:18px;background:#1f8a4c;color:#fff;padding:10px 16px;border-radius:8px;
+    font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;transform:translateY(8px);transition:.25s;pointer-events:none}
+  #toast.show{opacity:1;transform:none}
+  .buildbadge{position:fixed;left:10px;bottom:8px;font-size:11px;color:#26417a;background:#dfe8fb;border:1px solid #b9caea;
+    padding:3px 9px;border-radius:20px;font-weight:700}
+  .foot{margin:8px 2px;color:#6b7896;font-size:11px}
+  /* ---------- v7.9 : GNB 클릭 · 뷰 전환 · 기준관리 ---------- */
+  .gnb span.click{cursor:pointer}
+  .gnb span.click:hover{color:#dff0ff}
+  [hidden]{display:none!important}
+  .side .subttl{color:#dbe7ff;font-size:11px;font-weight:700;letter-spacing:.03em;margin:2px 2px 2px;opacity:.9}
+  .side .ent{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);border:1px solid #6f95dd;
+    border-radius:10px;color:#fff;font-weight:700;font-size:13px;padding:9px 12px;cursor:pointer}
+  .side .ent:hover{background:rgba(255,255,255,.18)}
+  .side .ent.on{background:linear-gradient(#7fb0ff,#4f7ad0);outline:2px solid #cfe0ff}
+  .side .ent .cnt{margin-left:auto;font-family:ui-monospace,monospace;font-size:11px;background:rgba(0,0,0,.22);
+    padding:1px 7px;border-radius:20px}
+  .erd{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:2px 0 10px;font-size:11px}
+  .erd .node{background:#eaf1ff;border:1px solid #9bb6e8;border-radius:6px;padding:2px 8px;color:#23407c;font-weight:700}
+  .erd .node.p{background:#dfeaff;border-color:#4f7ad0}
+  .erd .rel{color:#8a5a1a;font-weight:700}
+  .childwrap{display:flex;flex-direction:column;gap:14px}
+  .childcard{border:1px solid var(--grid-line);border-radius:8px;overflow:hidden}
+  .childcard .cc-head{display:flex;align-items:center;gap:8px;background:#eef3ff;border-bottom:1px solid var(--grid-line);
+    padding:6px 10px;font-weight:800;color:#1f4e9c}
+  .childcard .join{font-family:ui-monospace,monospace;font-size:11px;color:#8a5a1a;background:#fff3e2;
+    border:1px solid #e7cfa6;border-radius:20px;padding:1px 9px}
+  .childcard .cc-body{max-height:22vh;overflow:auto}
+  td .txt-in{width:100%;min-width:70px;border:1px solid #cbd6ea;border-radius:3px;padding:2px 5px;font-size:12px;background:#fff}
+  td.edit .txt-in{border-color:#e0663f}
+  th.edit{box-shadow:inset 0 0 0 2px var(--active)}
+  .keycol{background:#fbf3d6}
+  #dbcfg{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:-2px 0 10px;padding:9px 12px;
+    background:#eef7f1;border:1px solid #bfe0c9;border-radius:8px}
+  #dbcfg input{border:1px solid #9fc4ab;border-radius:4px;padding:5px 8px;font-size:12px}
+  #dbcfg b{color:#1f7a45}
+  .sbstat{font-size:11px;border-radius:20px;padding:2px 9px;border:1px solid #cbd6ea;background:#fff;color:#6b7896}
+  .sbstat.ok{background:#e7f6ec;border-color:#8fd3a6;color:#1f7a45}
+  .sbstat.err{background:#fdeceb;border-color:#e6a9a2;color:#b23}
+  /* ---------- v8.1 : 초기 메인(런처) 화면 ---------- */
+  #landing{position:fixed;inset:0;z-index:5000;display:flex;flex-direction:column;
+    background:radial-gradient(1200px 500px at 50% -10%,#12204a 0%,#0a1022 55%,#070b16 100%);color:#e8eefb}
+  #landing .lhead{display:flex;align-items:center;gap:14px;padding:16px 26px}
+  #landing .licon{width:40px;height:40px;border-radius:11px;background:linear-gradient(#3b6fd6,#2350ad);
+    display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 4px 14px rgba(40,90,200,.4)}
+  #landing .ltit{font-size:20px;font-weight:800;letter-spacing:-.01em}
+  #landing .lsub{font-size:12px;color:#93a1c4}
+  #landing .lright{margin-left:auto;display:flex;align-items:center;gap:10px}
+  #landing .lpill{font-size:12px;font-weight:700;padding:6px 12px;border-radius:8px;border:1px solid #244; color:#5fe3b0;background:#0e2b2a;display:flex;align-items:center;gap:6px}
+  #landing .lver{font-size:11px;font-family:ui-monospace,monospace;color:#9fb0d6;background:#12203f;border:1px solid #26406e;padding:6px 10px;border-radius:8px}
+  #landing .lkiosk{font-size:12px;font-weight:700;color:#cdd8f2;background:#16264c;border:1px solid #2c4a86;border-radius:8px;padding:7px 12px;cursor:pointer}
+  #landing .lkiosk:hover{background:#1d345f}
+  #landing .lcards{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 26px 6px;overflow-x:auto}
+  .lcard{position:relative;width:150px;min-height:230px;border-radius:16px;padding:18px 14px;cursor:pointer;
+    border:1px solid rgba(255,255,255,.10);background:linear-gradient(160deg,rgba(255,255,255,.06),rgba(255,255,255,.02));
+    display:flex;flex-direction:column;align-items:center;text-align:center;transition:transform .18s ease,box-shadow .18s ease,border-color .18s}
+  .lcard:hover{transform:translateY(-6px) scale(1.06);border-color:rgba(255,255,255,.28);box-shadow:0 18px 40px rgba(0,0,0,.5)}
+  .lcard .cnt{position:absolute;top:10px;right:12px;font-size:11px;font-weight:700;color:#dbe6ff;background:rgba(0,0,0,.28);border-radius:20px;padding:2px 8px}
+  .lcard .ci{width:64px;height:64px;border-radius:16px;display:flex;align-items:center;justify-content:center;margin:14px 0 16px}
+  .lcard .ct{font-size:18px;font-weight:800;margin-bottom:6px}
+  .lcard .cd{font-size:11.5px;color:#aab7d6;line-height:1.5}
+  .lcard .cc{margin-top:auto;font-family:ui-monospace,monospace;font-size:11px;color:#8fa0c6;letter-spacing:.06em;padding-top:12px}
+  .lchev{color:#42527a;font-size:20px;flex:none}
+  .lhint{text-align:center;color:#8493b8;font-size:12.5px;padding:10px 0 22px}
+  /* 카테고리별 색조 */
+  .lcard.bas .ci{background:rgba(240,180,60,.16);color:#f0c151} .lcard.bas:hover{background:linear-gradient(160deg,rgba(240,180,60,.20),rgba(240,180,60,.05))}
+  .lcard.sales .ci{background:rgba(90,150,255,.16);color:#7fb0ff}
+  .lcard.mat .ci{background:rgba(150,120,255,.16);color:#b39bff}
+  .lcard.prod .ci{background:rgba(45,210,200,.16);color:#4fe3d6}
+  .lcard.qc .ci{background:rgba(255,110,130,.16);color:#ff8fa2}
+  .lcard.ship .ci{background:rgba(45,200,160,.16);color:#5fe3b0}
+  .lcard.mgmt .ci{background:rgba(140,150,255,.16);color:#a6b0ff}
+  .lcard.eqp .ci{background:rgba(120,200,140,.16);color:#8fd3a6}
+  .brand{cursor:pointer}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+  <!-- ===== v8.1 : 초기 메인(런처) 화면 — v7.7 SFACTORY 스타일 재현 ===== -->
+  <div id="landing">
+    <div class="lhead">
+      <div class="licon">▦</div>
+      <div>
+        <div class="ltit">제약 패키징 MES</div>
+        <div class="lsub">업무 영역을 선택하세요 · Enterprise Manufacturing Suite</div>
+      </div>
+      <div class="lright">
+        <span class="lpill">📶 온라인</span>
+        <span class="lver">v8.6 · SFACTORY</span>
+        <span class="lkiosk" onclick="enterModule('prod')">🏭 현장 바로가기</span>
+      </div>
+    </div>
+    <div class="lcards" id="lcards">
+      <div class="lcard bas" onclick="enterModule('bas')"><span class="cnt">12종</span><div class="ci">🗄️</div><div class="ct">기준관리</div><div class="cd">거래처·품목·공정·설비·공통코드</div><div class="cc">BAS</div></div>
+      <span class="lchev">›</span>
+      <div class="lcard sales" onclick="enterModule('sales')"><span class="cnt">7종</span><div class="ci">📝</div><div class="ct">수주관리</div><div class="cd">수주·출하의뢰·납기</div><div class="cc">WES</div></div>
+      <span class="lchev">›</span>
+      <div class="lcard mat" onclick="enterModule('mat')"><span class="cnt">26종</span><div class="ci">📦</div><div class="ct">자재관리</div><div class="cd">발주·입출고·재고</div><div class="cc">WEM</div></div>
+      <span class="lchev">›</span>
+      <div class="lcard prod" onclick="enterModule('prod')"><span class="cnt">43종</span><div class="ci">🏭</div><div class="ct">생산관리</div><div class="cd">작업지시·생산실적</div><div class="cc">WEP</div></div>
+      <span class="lchev">›</span>
+      <div class="lcard qc" onclick="enterModule('qc')"><span class="cnt">9종</span><div class="ci">🛡️</div><div class="ct">품질관리</div><div class="cd">검사·불량·시정</div><div class="cc">QC</div></div>
+      <span class="lchev">›</span>
+      <div class="lcard ship" onclick="enterModule('ship')"><span class="cnt">14종</span><div class="ci">🚚</div><div class="ct">출하/물류</div><div class="cd">매출·출하·배송</div><div class="cc">SHP</div></div>
+      <span class="lchev">›</span>
+      <div class="lcard mgmt" onclick="enterModule('mgmt')"><span class="cnt">28종</span><div class="ci">📊</div><div class="ct">경영/시스템</div><div class="cd">통계·집계·권한</div><div class="cc">SYS</div></div>
+      <span class="lchev">›</span>
+      <div class="lcard eqp" onclick="enterModule('eqp')"><span class="cnt">17종</span><div class="ci">⚙️</div><div class="ct">설비관리</div><div class="cd">설비·지그·점검</div><div class="cc">EQP</div></div>
+    </div>
+    <div class="lhint">카테고리에 마우스를 올리면 확대되고 · 클릭하면 해당 업무 메인화면으로 진입합니다 · (상단 로고 클릭 시 이 화면으로 복귀)</div>
+  </div>
+
+  <div class="topbar">
+    <div class="brand" onclick="showLanding()" title="초기 메인 화면으로">㈜삼화당<small>P&amp;T</small></div>
+    <div class="gnb">
+      <span class="click" id="gnbBas" onclick="switchView('bas')">기준관리</span>
+      <span class="click" id="gnbSales" onclick="switchView('sales')">수주관리</span>
+      <span class="click" id="gnbMat" onclick="switchView('mat')">자재관리</span>
+      <span class="click on" id="gnbProd" onclick="switchView('prod')">생산관리</span>
+      <span class="click" id="gnbShip" onclick="switchView('ship')">출하관리</span>
+      <span class="click" id="gnbQc" onclick="switchView('qc')">품질관리</span>
+      <span class="click" id="gnbMgmt" onclick="switchView('mgmt')">경영관리</span>
+      <span class="click" id="gnbEqp" onclick="switchView('eqp')">설비관리</span>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <aside class="side">
+      <div id="side-prod">
+        <div class="men on" onclick="prodSub(0)">작업지시관리</div>
+        <div class="men" onclick="prodSub(1)">작업지시서출력</div>
+        <div class="men" onclick="prodSub(2)">품목별공정모니터링</div>
+        <div class="men" onclick="prodSub(3)">기기별공정모니터링</div>
+        <div class="men" onclick="prodSub(4)">기기별 작업이력</div>
+        <div class="men" onclick="prodSub(5)">태그부착관리</div>
+        <div class="men" onclick="prodSub(6)">생산실적등록</div>
+        <div class="men" onclick="prodSub(7)">작업일지</div>
+        <div class="men" onclick="prodSub(8)">생산실적현황</div>
+      </div>
+      <div id="side-bas" hidden>
+        <div class="subttl">기준정보 (SmartMES 기준관리)</div>
+        <div id="basMenu"></div>
+      </div>
+    </aside>
+
+    <main class="main">
+     <div id="view-prod">
+      <div class="tab">작업지시등록</div>
+      <div class="panelbox">
+        <!-- 툴바 -->
+        <div class="toolbar">
+          <span class="lbl">📊 작업지시등록</span>
+          <input type="date" id="fromDate" value="2026-06-08">
+          <span>~</span>
+          <input type="date" id="toDate" value="2026-09-08">
+          <select id="stateFilter">
+            <option value="전체">전체</option>
+            <option value="지시" selected>지시</option>
+            <option value="진행">진행</option>
+            <option value="완료">완료</option>
+          </select>
+          <button class="btn primary" id="btnSearch">🔍 조회</button>
+          <span class="spacer"></span>
+          <button class="btn" id="btnReload">🔄 데이터 전환</button>
+          <button class="btn" id="btnBatch">외주일괄처리</button>
+          <button class="btn" id="btnDelete">삭제</button>
+          <button class="btn" id="btnSave">💾 저장</button>
+          <button class="btn" id="btnPrint">지시서출력</button>
+          <button class="btn" id="btnExcel">엑셀다운</button>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div class="caption">작업지시등록 <span id="cntBadge" class="pill"></span></div>
+          <div class="legend"><span class="sw"></span> 빨강 테두리 = 이번에 <u>입력 활성화</u>된 항목 (클릭·수정 가능)</div>
+        </div>
+
+        <!-- 마스터 그리드 -->
+        <div class="gridwrap">
+          <table id="masterTable">
+            <thead>
+              <tr>
+                <th>작업번호</th><th class="key">작업상태</th><th>공정구분</th><th>제품명</th><th>업체명</th>
+                <th class="act">화급</th><th class="act">종이</th><th class="act">CTP</th>
+                <th>납기일</th><th>작업순번</th>
+                <th class="num">정매수량</th><th class="num">여분수량</th><th class="num">총수량</th>
+                <th class="act">디자인</th><th class="act">재단</th><th class="act">재단절수</th>
+                <th>절수</th><th>제품절수</th><th>인쇄도수</th><th>종이자재</th>
+                <th>격벽</th><th>태그</th><th>양면인쇄</th><th>전량납품</th><th>접지</th><th>비고</th>
+              </tr>
+            </thead>
+            <tbody id="masterBody"></tbody>
+          </table>
+        </div>
+
+        <!-- 하단 공정 detail -->
+        <div class="detailhead">
+          <b>공정 순서 (Detail)</b>
+          <span class="pill" id="selInfo">행을 선택하세요</span>
+          <span class="pill">양품 이월: 다음 공정 투입상한 = 직전 공정 양품</span>
+        </div>
+        <div class="gridwrap" style="max-height:26vh">
+          <table id="detailTable">
+            <thead>
+              <tr>
+                <th>공정구분</th><th>공정코드</th><th>공정</th><th>세부공정</th><th>작업완료일자</th>
+                <th>단위</th><th>전공정수량</th><th>양품수량</th><th>불량수량</th>
+                <th>발주업체</th><th>작업상태</th><th>비고</th>
+              </tr>
+            </thead>
+            <tbody id="detailBody"></tbody>
+          </table>
+        </div>
+
+        <div class="foot">
+          ※ 활성화 항목만 편집 가능하며(그 외 항목은 조회 전용), 저장 시 실제 SmartMES 컬럼명으로 payload가
+          생성됩니다(브라우저 콘솔 F12에서 확인). 조회는 납기일 범위 + 작업상태로 필터링합니다.
+        </div>
+      </div>
+     </div><!--/view-prod-->
+
+     <div id="view-bas" hidden>
+      <div class="tab" id="basTab">기준정보 관리</div>
+      <div class="panelbox">
+        <div class="toolbar">
+          <span class="lbl">🗂 <span id="basTitle">거래처</span> <span id="basMap" class="pill"></span></span>
+          <input type="text" id="basSearch" placeholder="검색(코드/명칭)" style="border:1px solid #9fb0cf;border-radius:4px;padding:4px 8px">
+          <button class="btn primary" id="basSearchBtn">🔍 조회</button>
+          <span class="spacer"></span>
+          <button class="btn" id="basNew">＋ 신규행</button>
+          <button class="btn primary" id="basSave">💾 저장</button>
+          <button class="btn" id="basExcel">엑셀다운</button>
+          <button class="btn" id="prodInfoBtn" hidden>🗂 제품정보등록</button>
+          <button class="btn" id="basDbBtn">⚙ DB설정</button>
+        </div>
+
+        <div id="dbcfg" hidden>
+          <b>Supabase 연결</b>
+          <input id="sbUrl" placeholder="https://xxxxxxxx.supabase.co" size="30">
+          <input id="sbKey" placeholder="anon 또는 service_role key" size="30" type="password">
+          <button class="btn primary" id="sbConnect">연결</button>
+          <span id="sbStat" class="sbstat">미연결 (미설정 시 콘솔 오프라인 저장)</span>
+          <span class="ro" style="font-size:11px">※ 저장 시 upsert(onConflict=PK) · 테이블은 동봉 DDL로 생성</span>
+        </div>
+
+        <div class="erd" id="basErd"></div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div class="caption"><span id="basCap">거래처</span> <span id="basCnt" class="pill"></span></div>
+          <div class="legend"><span class="sw"></span> 기준관리 활성화 — 코드/키 외 항목 편집 가능 · 행 클릭 시 관계(FK) 자식 실시간 연동</div>
+        </div>
+
+        <div class="gridwrap" style="max-height:38vh">
+          <table id="basMaster"><thead id="basHead"></thead><tbody id="basBody"></tbody></table>
+        </div>
+
+        <div class="detailhead">
+          <b>관계(FK) 연동 상세</b>
+          <span class="pill" id="basSelInfo">마스터 행을 선택하세요</span>
+          <span class="pill">SmartMES 원본 외래키 그대로 조인</span>
+        </div>
+        <div class="childwrap" id="basChildren"></div>
+
+        <div class="foot">
+          ※ 기준관리 마스터의 코드/키 컬럼은 조회 전용(무결성), 그 외 항목은 편집 가능. 행 선택 시 SmartMES
+          외래키(예: 거래처 CmCustomer → 담당자 CmCustomerMan / 납품처 CmShipTo, 조인 CorpId+CustCode)로
+          자식 데이터가 실시간 연동됩니다. 저장 시 실제 테이블·컬럼명 payload 생성(F12 콘솔).
+        </div>
+      </div>
+     </div><!--/view-bas-->
+    </main>
+  </div>
+
+  <!-- ===== v8.3 : 제품정보등록 클래식 폼 (SFACTORY 재현) ===== -->
+  <style id="pif-style">
+    #pif{position:fixed;inset:0;z-index:6000;display:none;background:rgba(2,6,23,.55)}
+    #pif.open{display:block}
+    .pif-win{position:absolute;inset:2.5vh 2vw;background:#eef1f6;border:1px solid #9fb0cf;border-radius:8px;
+      display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.5);font-size:12px}
+    .pif-title{display:flex;align-items:center;gap:8px;background:linear-gradient(#e9eef7,#dbe4f3);border-bottom:1px solid #b7c4dc;padding:7px 12px}
+    .pif-title b{color:#1f4e9c;font-size:14px}
+    .pif-title .btns{margin-left:auto;display:flex;gap:6px}
+    .pif-b{border:1px solid #9fb0cf;background:linear-gradient(#fbfdff,#e9eefb);border-radius:6px;padding:5px 12px;cursor:pointer;font-weight:700;color:#243b6b}
+    .pif-b:hover{background:#dce6fb}.pif-b.pri{background:linear-gradient(#4f7ad0,#3a63b4);color:#fff;border-color:#3a63b4}
+    .pif-b.warn{background:linear-gradient(#e46a58,#cf4b39);color:#fff;border-color:#cf4b39}
+    .pif-body{flex:1;display:grid;grid-template-columns:150px 380px 1fr;min-height:0}
+    .pif-rail{background:linear-gradient(#3a63b4,#2c4f9c);padding:12px 10px;display:flex;flex-direction:column;gap:9px;overflow:auto}
+    .pif-rail .r{background:linear-gradient(#5b86db,#3f68c0);border:1px solid #7ea0e0;border-radius:18px;color:#fff;
+      text-align:center;font-weight:800;padding:10px 6px;cursor:pointer;box-shadow:0 2px 3px rgba(0,0,0,.2)}
+    .pif-rail .r:hover{filter:brightness(1.08)} .pif-rail .r.on{background:linear-gradient(#8f6fd6,#6d49c0);outline:2px solid #cbb8f2}
+    .pif-list{background:#fff;border-right:1px solid #c3ccdb;display:flex;flex-direction:column;min-height:0}
+    .pif-filter{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px;border-bottom:1px solid #dbe4f3;background:#f6f8fc}
+    .pif-filter select,.pif-filter input{border:1px solid #9fb0cf;border-radius:4px;padding:3px 6px;font-size:12px}
+    .pif-filter input{width:96px}
+    .pif-listwrap{overflow:auto;flex:1}
+    .pif-list table{width:100%;border-collapse:collapse}
+    .pif-list th,.pif-list td{border-bottom:1px solid #e3e8f2;padding:5px 8px;text-align:left;white-space:nowrap}
+    .pif-list th{position:sticky;top:0;background:#dbe4f3;color:#233a63;font-size:11px}
+    .pif-list td.code{font-family:ui-monospace,monospace;color:#2b4788}
+    .pif-list tr{cursor:pointer}.pif-list tr:hover{background:#eef3ff}.pif-list tr.on{background:#cfe0ff}
+    .pif-detail{background:#f3f5f9;overflow:auto;padding:12px}
+    .pif-dtit{font-weight:800;color:#1f4e9c;margin:2px 2px 10px}
+    .pif-grid{display:grid;grid-template-columns:84px 1fr 84px 1fr;gap:6px 8px;align-items:center}
+    .pif-grid .lab{background:#f6d9c9;border:1px solid #e6b79e;border-radius:4px;color:#8a3a1a;font-weight:700;
+      text-align:center;padding:5px 4px}
+    .pif-grid .full{grid-column:2/5}
+    .pif-grid input,.pif-grid select{width:100%;border:1px solid #cbd6ea;border-radius:4px;padding:4px 6px;font-size:12px;background:#fff}
+    .pif-grid input:focus,.pif-grid select:focus{outline:2px solid #4f7ad0}
+    .pif-size{display:flex;gap:4px;align-items:center}.pif-size input{width:70px}
+    .pif-note{grid-column:1/5;display:grid;grid-template-columns:84px 1fr;gap:6px 8px}
+    .pif-note textarea{width:100%;height:46px;border:1px solid #cbd6ea;border-radius:4px;padding:4px 6px;font-size:12px;resize:vertical}
+    .pif-foot{padding:8px 12px;border-top:1px solid #c3ccdb;background:#eef3ff;color:#2b4788;font-size:11px}
+    .pif-foot b{color:#8a5a1a}
+  </style>
+  <div id="pif">
+    <div class="pif-win">
+      <div class="pif-title">
+        📄 <b>제품정보등록</b>
+        <span class="pill" style="margin-left:8px">CmMaterial · 기준정보 연동</span>
+        <div class="btns">
+          <button class="pif-b" id="pifNew">＋ 신규</button>
+          <button class="pif-b pri" id="pifSave">💾 저장</button>
+          <button class="pif-b warn" id="pifDel">🗑 삭제</button>
+          <button class="pif-b" id="pifClose">✕ 닫기</button>
+        </div>
+      </div>
+      <div class="pif-body">
+        <div class="pif-rail" id="pifRail"></div>
+        <div class="pif-list">
+          <div class="pif-filter">
+            <span style="font-weight:700;color:#1f4e9c">회사</span>
+            <select id="pifCo"></select>
+            <span>제품코드</span><input id="pifFCode">
+            <span>제품명</span><input id="pifFName">
+            <button class="pif-b pri" id="pifSearch">조회</button>
+          </div>
+          <div class="pif-listwrap">
+            <table><thead><tr><th style="width:120px">제품코드</th><th>제품명</th></tr></thead>
+            <tbody id="pifBody"></tbody></table>
+          </div>
+        </div>
+        <div class="pif-detail">
+          <div class="pif-dtit">상세정보 <span class="pill" id="pifSel"></span></div>
+          <div class="pif-grid">
+            <div class="lab">품목코드</div><input id="pif-MaterialCode">
+            <div class="lab">품목구분</div><select id="pif-Kind"><option>케이스</option><option>설명서</option><option>단상자</option><option>라벨</option></select>
+            <div class="lab">제품코드</div><input id="pif-ProdCode" class="full">
+            <div class="lab">제품명</div><input id="pif-MaterialName" class="full">
+            <div class="lab">특이사항</div><input id="pif-DesignMemo" class="full">
+            <div class="lab">지질</div><input id="pif-Quality">
+            <div class="lab">사이즈</div>
+            <div class="pif-size"><input id="pif-L" placeholder="가로"> <input id="pif-W" placeholder="세로"> <input id="pif-H" placeholder="높이"></div>
+            <div class="lab">접지</div><select id="pif-Fold"><option>N</option><option>Y</option></select>
+            <div class="lab">절수</div><input id="pif-Cut">
+            <div class="lab">제품절수</div><input id="pif-Cut2">
+            <div class="lab">격벽</div><select id="pif-Wall"><option>N</option><option>Y</option></select>
+            <div class="lab">태그</div><select id="pif-Tag"><option>N</option><option>Y</option></select>
+            <div class="lab">양면인쇄</div><select id="pif-Double"><option>N</option><option>Y</option></select>
+            <div class="lab">전량납품</div><select id="pif-AllDeliver"><option>N</option><option>Y</option></select>
+            <div class="lab">종이자재</div><input id="pif-Paper" class="full">
+            <div class="lab">업체명</div><input id="pif-CustName">
+            <div class="lab">인쇄도수</div><input id="pif-PrintColors">
+            <div class="lab">포장박스</div><input id="pif-Boxitem">
+            <div class="lab">포장단위</div><input id="pif-Boxqty">
+            <div class="lab">제품버전</div><input id="pif-Version">
+            <div class="lab">PO No.</div><input id="pif-PoNo">
+            <div class="pif-note"><div class="lab">비고</div><textarea id="pif-Remark"></textarea></div>
+            <div class="pif-note"><div class="lab">사무실메모</div><textarea id="pif-OfficeMemo"></textarea></div>
+          </div>
+        </div>
+      </div>
+      <div class="pif-foot">※ 연결·연동: 리스트 행 선택 → 상세 로딩 · <b>업체명→거래처(CmCustomer)</b> · <b>종이자재→종이규격</b> · <b>품목구분→공통코드</b> · 저장 시 실제 <b>CmMaterial</b> 컬럼 payload(F12).</div>
+    </div>
+  </div>
+  <script>
+  (function(){
+    const Y='Y',N='N';
+    const $=id=>document.getElementById(id);
+    function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+    // ===== v8.4 : 단일 CmMaterial 스토어 공유(품목 그리드 ↔ 제품정보등록 실시간) =====
+    function cmEnt(){ return (typeof MODULES!=='undefined' && MODULES.bas) ? MODULES.bas.find(e=>e.key==='CmMaterial') : null; }
+    function store(){ const e=cmEnt(); return e? e.rows : []; }
+    const DETAIL_DEF={GroupCode:'',Kind:'케이스',DesignMemo:'',Quality:'',Length:'',Thickness:'',Wide:'',Fold:'N',Wall:'N',Tag:'N',Double:'N',AllDeliver:'N',PrintColors:'',Boxitem:'',Boxqty:0,Version:'',PoNo:'',OfficeMemo:''};
+    // 입력필드(suffix) → CmMaterial 컬럼 매핑
+    const MAP={MaterialCode:'GroupCode',ProdCode:'MaterialCode',Kind:'Kind',MaterialName:'MaterialName',DesignMemo:'DesignMemo',Quality:'Quality',L:'Length',W:'Thickness',H:'Wide',Fold:'Fold',Cut:'Cut',Cut2:'Cut2',Wall:'Wall',Tag:'Tag',Double:'Double',AllDeliver:'AllDeliver',Paper:'Paper_quality',CustName:'CustName',PrintColors:'PrintColors',Boxitem:'Boxitem',Boxqty:'Boxqty',Version:'Version',PoNo:'PoNo',Remark:'Remark',OfficeMemo:'OfficeMemo'};
+    const RAIL=[['공통코드등록','bas','공통코드'],['제품정보등록','self'],['사원정보등록','bas','사원'],['설비정보등록','bas','설비'],
+      ['거래처등록','bas','거래처'],['차량등록','demo'],['색상정보등록','demo'],['불량코드등록','bas','공통코드'],['비가동코드등록','demo']];
+    let cur=-1, seeded=false;
+
+    // 초기 1회: 기존 품목 상세필드 보강 + 제품정보 시드를 같은 스토어에 병합(그리드도 공유)
+    function ensureSeed(){
+      if(seeded) return; const rows=store(); if(!rows.length && !cmEnt()) return; seeded=true;
+      rows.forEach(r=>{ for(const k in DETAIL_DEF){ if(r[k]===undefined) r[k]=DETAIL_DEF[k]; } if(!r.GroupCode) r.GroupCode=r.MaterialCode; });
+      const has=new Set(rows.map(r=>r.MaterialCode));
+      function tams(code,name){return {CorpId:'001',MaterialCode:code,GroupCode:'01-040',Kind:'케이스',MaterialName:name,CustName:'한미약품',Cut:2,Cut2:4,Paper_quality:'IV350',UrgentYN:N,CutYN:N,SaleUnitPrice:0,DesignMemo:'',Quality:'1/1조',Length:'80.0',Thickness:'40.0',Wide:'150.0',Fold:'N',Wall:'N',Tag:'N',Double:'N',AllDeliver:'N',PrintColors:4,Boxitem:'',Boxqty:0,Version:'',PoNo:'',OfficeMemo:'',Remark:''};}
+      const seeds=[
+        tams('01-040-0002','한미탐스OD정 0.4mg 30T C/S'),tams('01-040-0003','한미탐스OD정 0.4mg 30T C/S'),
+        tams('01-040-0004','한미탐스OD정 0.4mg 30T C/S'),tams('01-040-0005','한미탐스OD정 0.4mg 30T C/S-불량재작업'),
+        tams('01-040-0006','한미탐스OD정 0.4mg 30T C/S'),tams('01-040-0007','한미탐스OD정 0.4mg 30T C/S-불량재작업'),
+        tams('01-040-0008','한미탐스OD정 0.4mg 30T C/S'),tams('01-040-0009','한미탐스OD정 0.4mg 30T C/S'),
+        tams('01-040-0010','한미탐스OD정 0.4mg 30T C/S'),tams('01-040-0011','한미탐스OD정 0.4mg 30T C/S'),
+        tams('01-040-0012','한미탐스OD정 0.4mg 30T C/S-2차'),tams('01-040-0013','한미탐스OD정 0.4mg 30T C/S'),
+        tams('01-040-0014','♥한미탐스OD정 0.4mg 30T C/S'),tams('01-040-0015','♥한미탐스OD정 0.4mg 30T C/S'),
+        tams('01-040-0016','♥한미탐스OD정 0.4mg 30T C/S'),
+        {CorpId:'001',MaterialCode:'99-9999-0004',GroupCode:'99-9999',Kind:'케이스',MaterialName:'삼화당 카달로그 & 믹스코',CustName:'삼화당(회사)',Cut:1,Cut2:1,Paper_quality:'국210g아르떼',UrgentYN:N,CutYN:N,SaleUnitPrice:0,DesignMemo:'아르떼 백색',Quality:'1/1조',Length:'210.0',Thickness:'0.0',Wide:'297.0',Fold:'N',Wall:'N',Tag:'N',Double:'N',AllDeliver:'N',PrintColors:8,Boxitem:'',Boxqty:0,Version:'',PoNo:'',OfficeMemo:'',Remark:'국210g아르떼 횡목 이어야함. (14.9/26) - 인쇄는 11월에 함'},
+      ];
+      seeds.forEach(s=>{ if(!has.has(s.MaterialCode)) rows.push(s); });
+      refreshGrid();
+    }
+    // 그리드/메뉴 동기화(양방향 실시간 공유)
+    function refreshGrid(){
+      try{ if(typeof renderBasMenu==='function') renderBasMenu(); }catch(e){}
+      try{ if(typeof CURMOD!=='undefined' && CURMOD==='bas' && typeof curList==='function' && typeof renderBasMaster==='function'){
+        basFiltered = curList()[basEntIdx].rows.slice(); renderBasMaster();
+      } }catch(e){}
+    }
+    function companies(){ return ['전체', ...new Set(store().map(r=>r.CustName).filter(Boolean))]; }
+
+    function renderRail(){
+      const r=$('pifRail'); r.innerHTML='';
+      RAIL.forEach(([label,kind,idx])=>{
+        const d=document.createElement('div'); d.className='r'+(kind==='self'?' on':'');
+        d.textContent=label;
+        d.onclick=()=>{
+          if(kind==='self') return;
+          if(kind==='bas'){ closePif(); if(typeof switchView==='function'){switchView('bas'); if(typeof selectEntity==='function'){ var ti=MODULES.bas.findIndex(e=>e.label===idx); selectEntity(ti>=0?ti:0);} } }
+          else { if(typeof toast==='function') toast('데모: '+label+' (정식 버전 제공)'); }
+        };
+        r.appendChild(d);
+      });
+    }
+    function renderList(){
+      const co=$('pifCo').value, fc=$('pifFCode').value.trim(), fn=$('pifFName').value.trim();
+      const b=$('pifBody'); b.innerHTML='';
+      store().forEach((p,i)=>{
+        if(co!=='전체' && p.CustName!==co) return;
+        if(fc && !String(p.MaterialCode||'').includes(fc)) return;
+        if(fn && !String(p.MaterialName||'').includes(fn)) return;
+        const tr=document.createElement('tr'); tr.dataset.i=i; if(i===cur) tr.classList.add('on');
+        tr.innerHTML=`<td class="code">${esc(p.MaterialCode)}</td><td>${esc(p.MaterialName)}</td>`;
+        tr.onclick=()=>loadDetail(i);
+        b.appendChild(tr);
+      });
+    }
+    function loadDetail(i){
+      cur=i; const p=store()[i]; if(!p) return;
+      document.querySelectorAll('#pifBody tr').forEach(t=>t.classList.toggle('on',+t.dataset.i===i));
+      for(const suf in MAP){ const el=$('pif-'+suf); if(el!=null){ const v=p[MAP[suf]]; el.value=(v==null?'':v); } }
+      $('pifSel').textContent = p.MaterialCode+' · '+p.MaterialName;
+    }
+    $('pifSearch').onclick=renderList;
+    $('pifFCode').addEventListener('keydown',e=>{if(e.key==='Enter')renderList();});
+    $('pifFName').addEventListener('keydown',e=>{if(e.key==='Enter')renderList();});
+    $('pifCo').addEventListener('change',renderList);
+    $('pifNew').onclick=()=>{
+      const co=$('pifCo').value==='전체'?'':$('pifCo').value;
+      const row={CorpId:'001',MaterialCode:'',GroupCode:'',Kind:'케이스',MaterialName:'(신규 제품)',CustName:co,Cut:1,Cut2:1,Paper_quality:'',UrgentYN:N,CutYN:N,SaleUnitPrice:0,DesignMemo:'',Quality:'',Length:'',Thickness:'',Wide:'',Fold:'N',Wall:'N',Tag:'N',Double:'N',AllDeliver:'N',PrintColors:'',Boxitem:'',Boxqty:0,Version:'',PoNo:'',OfficeMemo:'',Remark:''};
+      store().push(row); refreshGrid(); renderList(); loadDetail(store().length-1);
+      if(typeof toast==='function') toast('신규 제품 — 입력 후 저장(품목 그리드에도 즉시 추가)');
+    };
+    $('pifSave').onclick=()=>{
+      if(cur<0){ if(typeof toast==='function') toast('제품을 선택하세요'); return; }
+      const p=store()[cur];
+      for(const suf in MAP){ const el=$('pif-'+suf); if(el!=null){ let v=el.value; if(suf==='Cut'||suf==='Cut2'||suf==='Boxqty') v=Number(v||0); p[MAP[suf]]=v; } }
+      refreshGrid(); renderList(); loadDetail(cur);
+      console.log('[제품정보등록 저장 · CmMaterial(단일 스토어)]', { table:'CmMaterial', onConflict:'CorpId,MaterialCode', row:p });
+      if(typeof toast==='function') toast('저장 완료 · '+(p.MaterialCode||'')+' — 품목 그리드 실시간 반영(F12)');
+    };
+    $('pifDel').onclick=()=>{
+      if(cur<0) return; const p=store()[cur];
+      store().splice(cur,1); cur=-1; refreshGrid(); renderList();
+      for(const suf in MAP){ const el=$('pif-'+suf); if(el)el.value=''; } $('pifSel').textContent='';
+      if(typeof toast==='function') toast('삭제됨 · '+(p.MaterialCode||'')+' (품목 그리드에서도 제거)');
+    };
+    $('pifClose').onclick=closePif;
+    function closePif(){ $('pif').classList.remove('open'); refreshGrid(); }
+    function openPif(){
+      ensureSeed();
+      $('pif').classList.add('open');
+      const sel=$('pifCo'); sel.innerHTML=''; companies().forEach(c=>{const o=document.createElement('option');o.textContent=c;sel.appendChild(o);});
+      renderRail(); renderList();
+      const idx = store().findIndex(r=>r.MaterialCode==='99-9999-0004');
+      loadDetail(idx>=0?idx:(store().length-1));
+    }
+    const btn=document.getElementById('prodInfoBtn');
+    if(btn) btn.addEventListener('click', openPif);
+    document.addEventListener('keydown',e=>{ if(e.key==='Escape') closePif(); });
+    // 페이지 로드시 스토어 통합(품목 그리드도 제품 목록 공유)
+    if(document.readyState!=='loading') ensureSeed(); else document.addEventListener('DOMContentLoaded', ensureSeed);
+  })();
+  </script>
+
+  <div class="buildbadge">SmartMES · SFACTORY · v8.6 · 불량모니터링 통합 (2026-09-16)</div>
+  <div id="toast"></div>
+
+<script>
+/* =========================================================================
+   데이터 모델 (스크린샷 기준 시드 + 실제 스키마 매핑)
+   ========================================================================= */
+const N=false, Y=true;
+// 표준 공정 라우팅 생성기 (종이→재단→인쇄→[톰슨]→포장)
+function routing(cutYeon, printCuts, prodCuts, qtyTotal, thomson){
+  const good = cutYeon || 0;
+  const printPcs = Math.round(good*500*(printCuts||1));
+  const rows=[
+    {gu:'외주공정',code:'15',proc:'종이',sub:'시트지',done:'',unit:'연',prev:'',good:good.toFixed(2),bad:'0',vendor:'신승지류',state:'완료',remark:'유광나미'},
+    {gu:'사내공정',code:'20',proc:'재단',sub:'일반',done:'',unit:'연',prev:'',good:good.toFixed(1),bad:'0',vendor:'삼화당피앤티',state:'완료',remark:''},
+    {gu:'사내공정',code:'30',proc:'인쇄',sub:'옵셋',done:'',unit:'개',prev:printPcs,good:0,bad:'0',vendor:'삼화당피앤티',state:'지시',remark:''},
+  ];
+  if(thomson) rows.push({gu:'사내공정',code:'50',proc:'톰슨',sub:'자동',done:'',unit:'개',prev:0,good:0,bad:'0',vendor:'삼화당피앤티',state:'지시',remark:''});
+  rows.push({gu:'사내공정',code:'90',proc:'포장',sub:'직배',done:'',unit:'매(강)',prev:0,good:0,bad:'0',vendor:'삼화당피앤티',state:'지시',remark:''});
+  return rows;
+}
+
+const ROWS = [
+  {no:'20260811-0004',state:'지시',gubun:'사내공정',name:'21그램)반려동물 지관 - 중',vendor:'21그램',urgent:Y,paper:N,ctp:Y,due:'1900-01-01',seq:0,jeongmae:1200,yebun:0,total:1200,design:Y,cut:N,cutjeol:0,jeolsu:1,jejeol:1,dosu:1,jaje:'240SC+백K E골 합지',byeok:N,tag:N,yang:N,jeon:N,jeopji:N,remark:'260807',
+    detail:[
+      {gu:'외주공정',code:'15',proc:'종이',sub:'시트지',done:'',unit:'연',prev:'',good:'2.40',bad:'0',vendor:'신승지류',state:'완료',remark:'유광나미'},
+      {gu:'사내공정',code:'20',proc:'재단',sub:'일반',done:'',unit:'연',prev:'',good:'2.4',bad:'0',vendor:'삼화당피앤티',state:'완료',remark:'상꽉:접착X/591*407*60mm'},
+      {gu:'사내공정',code:'90',proc:'포장',sub:'직배',done:'',unit:'매(강)',prev:0,good:0,bad:'0',vendor:'삼화당피앤티',state:'지시',remark:'하꽉:사면접착/570*390*180mm'},
+    ]},
+  {no:'20260811-0017',state:'지시',gubun:'사내공정',name:'펫닥)반려동물 지관 - XS (소)',vendor:'펫닥',urgent:Y,paper:N,ctp:Y,due:'1900-01-01',seq:0,jeongmae:1000,yebun:0,total:1000,design:Y,cut:N,cutjeol:0,jeolsu:1,jejeol:1,dosu:1,jaje:'240SC+백K E골 합지',byeok:N,tag:N,yang:N,jeon:N,jeopji:N,remark:'26081'},
+  {no:'20260811-0018',state:'지시',gubun:'사내공정',name:'펫닥)반려동물 지관 - S (중)',vendor:'펫닥',urgent:Y,paper:N,ctp:Y,due:'1900-01-01',seq:0,jeongmae:3000,yebun:0,total:3000,design:Y,cut:N,cutjeol:0,jeolsu:1,jejeol:1,dosu:1,jaje:'240SC+백K E골 합지',byeok:N,tag:N,yang:N,jeon:N,jeopji:N,remark:'26081'},
+  {no:'20260811-0019',state:'지시',gubun:'사내공정',name:'펫닥)반려동물 지관 - L (대)',vendor:'펫닥',urgent:Y,paper:N,ctp:Y,due:'1900-01-01',seq:0,jeongmae:1000,yebun:0,total:1000,design:Y,cut:N,cutjeol:0,jeolsu:1,jejeol:1,dosu:1,jaje:'240SC+백K E골 합지',byeok:N,tag:N,yang:N,jeon:N,jeopji:N,remark:'26081'},
+  {no:'20260811-0012',state:'지시',gubun:'사내공정',name:'한미)프로 캄 후시메디 리페어크림50ml(...',vendor:'코스맥',urgent:N,paper:N,ctp:N,due:'2026-09-08',seq:117,jeongmae:7050,yebun:750,total:7800,design:Y,cut:N,cutjeol:0,jeolsu:3,jejeol:2,dosu:3,jaje:'RIV400횡',byeok:N,tag:N,yang:N,jeon:N,jeopji:N,remark:'260810'},
+  {no:'20260814-0012',state:'지시',gubun:'사내공정',name:'피나스타정 설명서',vendor:'중외제',urgent:Y,paper:N,ctp:N,due:'2026-09-08',seq:133,jeongmae:40002,yebun:1998,total:42000,design:Y,cut:N,cutjeol:0,jeolsu:3,jejeol:8,dosu:2,jaje:'모조지70종',byeok:N,tag:Y,yang:N,jeon:N,jeopji:N,remark:'260814'},
+  {no:'20260814-0013',state:'지시',gubun:'사내공정',name:'피나스타정 5mg 30정 C/S',vendor:'중외제',urgent:N,paper:N,ctp:N,due:'2026-09-08',seq:133,jeongmae:40002,yebun:3198,total:43200,design:Y,cut:N,cutjeol:0,jeolsu:2,jejeol:12,dosu:4,jaje:'IV350국횡',byeok:N,tag:N,yang:N,jeon:N,jeopji:N,remark:'260814',thomson:true},
+  {no:'20260819-0005',state:'지시',gubun:'사내공정',name:'메수리드정 설명서(신)',vendor:'중외제',urgent:Y,paper:N,ctp:N,due:'2026-09-08',seq:133,jeongmae:3012,yebun:988,total:4000,design:Y,cut:N,cutjeol:0,jeolsu:2,jejeol:10,dosu:2,jaje:'모조지70종',byeok:N,tag:N,yang:N,jeon:N,jeopji:N,remark:'260819'},
+  {no:'20260819-0006',state:'지시',gubun:'사내공정',name:'메수리드정 100mg 100정 C/S',vendor:'중외재',urgent:Y,paper:N,ctp:N,due:'2026-09-08',seq:133,jeongmae:3012,yebun:828,total:3840,design:Y,cut:N,cutjeol:0,jeolsu:2,jejeol:6,dosu:2,jaje:'SC350국종',byeok:N,tag:N,yang:N,jeon:N,jeopji:N,remark:'260819'},
+  {no:'20260819-0007',state:'지시',gubun:'사내공정',name:'리바로켓정 2/10mg 설명서',vendor:'중외제',urgent:Y,paper:N,ctp:N,due:'2026-09-08',seq:133,jeongmae:122402,yebun:2398,total:124800,design:Y,cut:N,cutjeol:0,jeolsu:3,jejeol:4,dosu:2,jaje:'60모조종',byeok:N,tag:N,yang:N,jeon:N,jeopji:N,remark:'260819'},
+  {no:'20260819-0008',state:'지시',gubun:'사내공정',name:'리바로켓정 2/10mg 30T C/S',vendor:'중외양',urgent:N,paper:N,ctp:N,due:'2026-09-08',seq:133,jeongmae:122402,yebun:2398,total:124800,design:Y,cut:N,cutjeol:0,jeolsu:2,jejeol:4,dosu:3,jaje:'IV350종',byeok:N,tag:N,yang:N,jeon:N,jeopji:N,remark:'260819',thomson:true},
+  {no:'20260818-0009',state:'지시',gubun:'사내공정',name:'피에프디)콜라겐 파워 퍼밍 아이크림 10...',vendor:'엔코스',urgent:N,paper:Y,ctp:Y,due:'2026-09-08',seq:137,jeongmae:10000,yebun:0,total:10000,design:Y,cut:N,cutjeol:0,jeolsu:3,jejeol:3,dosu:3,jaje:'IV300종',byeok:N,tag:Y,yang:Y,jeon:N,jeopji:N,remark:'260814'},
+  {no:'20260820-0002',state:'지시',gubun:'사내공정',name:'나크드림 나잘스프레이 18g(140휘)/병',vendor:'경동제',urgent:N,paper:N,ctp:Y,due:'2026-09-08',seq:138,jeongmae:19300,yebun:2300,total:21600,design:Y,cut:N,cutjeol:0,jeolsu:2,jejeol:4,dosu:3,jaje:'CCP350종',byeok:N,tag:N,yang:N,jeon:N,jeopji:N,remark:'260819'},
+];
+// detail 미지정 행은 표준 라우팅 자동 생성
+ROWS.forEach(r=>{ if(!r.detail) r.detail = routing(r.cutjeol||2.0, r.jeolsu, r.jejeol, r.total, r.thomson); });
+
+/* =========================================================================
+   렌더링
+   ========================================================================= */
+const yn = b => b ? 'Y' : 'N';
+const nf = n => (n==null||n==='')?'':Number(n).toLocaleString();
+let filtered = ROWS.slice();
+let selIndex = 0;
+
+function cb(checked, field, idx){
+  return `<input type="checkbox" ${checked?'checked':''} data-field="${field}" data-idx="${idx}">`;
+}
+
+function renderMaster(){
+  const tb=document.getElementById('masterBody'); tb.innerHTML='';
+  filtered.forEach((r)=>{
+    const idx = ROWS.indexOf(r);
+    const tr=document.createElement('tr');
+    tr.dataset.idx=idx;
+    if(idx===selIndex) tr.classList.add('sel');
+    tr.innerHTML =
+      `<td>${r.no}</td>`+
+      `<td>${r.state}</td>`+
+      `<td>${r.gubun}</td>`+
+      `<td class="l">${r.name}</td>`+
+      `<td>${r.vendor}</td>`+
+      `<td class="act">${cb(r.urgent,'urgent',idx)}</td>`+
+      `<td class="act">${cb(r.paper,'paper',idx)}</td>`+
+      `<td class="act">${cb(r.ctp,'ctp',idx)}</td>`+
+      `<td>${r.due}</td>`+
+      `<td class="r">${r.seq}</td>`+
+      `<td class="r ro">${nf(r.jeongmae)}</td>`+
+      `<td class="r ro">${nf(r.yebun)}</td>`+
+      `<td class="r ro">${nf(r.total)}</td>`+
+      `<td class="act">${cb(r.design,'design',idx)}</td>`+
+      `<td class="act">${cb(r.cut,'cut',idx)}</td>`+
+      `<td class="act"><input class="num-in" type="number" step="0.01" min="0" value="${Number(r.cutjeol).toFixed(2)}" data-field="cutjeol" data-idx="${idx}"></td>`+
+      `<td class="r ro">${r.jeolsu}</td>`+
+      `<td class="r ro">${r.jejeol}</td>`+
+      `<td class="r ro">${r.dosu}</td>`+
+      `<td class="l ro">${r.jaje}</td>`+
+      `<td class="ro">${yn(r.byeok)}</td>`+
+      `<td class="ro">${yn(r.tag)}</td>`+
+      `<td class="ro">${yn(r.yang)}</td>`+
+      `<td class="ro">${yn(r.jeon)}</td>`+
+      `<td class="ro">${yn(r.jeopji)}</td>`+
+      `<td class="l ro">${r.remark}</td>`;
+    tb.appendChild(tr);
+  });
+  document.getElementById('cntBadge').textContent = `${filtered.length} 건`;
+  bindEditors();
+}
+
+function renderDetail(){
+  const r=ROWS[selIndex]; const tb=document.getElementById('detailBody'); tb.innerHTML='';
+  document.getElementById('selInfo').textContent = r? `${r.no} · ${r.name}` : '행을 선택하세요';
+  if(!r) return;
+  r.detail.forEach(d=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${d.gu}</td><td>${d.code}</td><td>${d.proc}</td><td>${d.sub}</td>`+
+      `<td>${d.done||''}</td><td>${d.unit}</td><td class="r">${nf(d.prev)}</td>`+
+      `<td class="r">${d.good}</td><td class="r">${d.bad}</td><td>${d.vendor}</td>`+
+      `<td>${d.state}</td><td class="l">${d.remark||''}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+/* ---- 활성 항목 편집 바인딩 (화급/종이/CTP/디자인/재단 + 재단절수) ---- */
+function bindEditors(){
+  document.querySelectorAll('#masterBody input[type=checkbox]').forEach(el=>{
+    el.addEventListener('change',e=>{
+      e.stopPropagation();
+      const i=+el.dataset.idx, f=el.dataset.field;
+      ROWS[i][f]=el.checked;
+    });
+    el.addEventListener('click',e=>e.stopPropagation());
+  });
+  document.querySelectorAll('#masterBody input.num-in').forEach(el=>{
+    el.addEventListener('input',e=>{ e.stopPropagation(); ROWS[+el.dataset.idx].cutjeol = parseFloat(el.value||'0'); });
+    el.addEventListener('click',e=>e.stopPropagation());
+  });
+  document.querySelectorAll('#masterBody tr').forEach(tr=>{
+    tr.addEventListener('click',()=>{ selIndex=+tr.dataset.idx; renderMaster(); renderDetail(); });
+  });
+}
+
+/* =========================================================================
+   조회 / 저장 / 엑셀
+   ========================================================================= */
+function inRange(due, from, to){
+  if(!due) return false;
+  return due>=from && due<=to;      // ISO(YYYY-MM-DD) 문자열 비교
+}
+document.getElementById('btnSearch').addEventListener('click',()=>{
+  const from=document.getElementById('fromDate').value, to=document.getElementById('toDate').value;
+  const st=document.getElementById('stateFilter').value;
+  filtered = ROWS.filter(r=> inRange(r.due,from,to) && (st==='전체'||r.state===st) );
+  if(!filtered.length){ toast('조회 결과 없음 (납기일 범위/상태 확인)'); }
+  else toast(`조회 완료 · ${filtered.length}건`);
+  selIndex = filtered.length? ROWS.indexOf(filtered[0]) : -1;
+  renderMaster(); renderDetail();
+});
+document.getElementById('btnReload').addEventListener('click',()=>{
+  filtered=ROWS.slice(); selIndex=0; renderMaster(); renderDetail(); toast('전체 데이터 표시');
+});
+
+// 저장 : 활성 항목만 실제 SmartMES 컬럼명으로 payload 생성
+document.getElementById('btnSave').addEventListener('click',()=>{
+  const payload = ROWS.map(r=>({
+    JobNo:r.no,
+    "CmMaterial.UrgentYN": r.urgent?'Y':'N',   // 화급
+    PaperReadyYN: r.paper?'Y':'N',             // 종이(준비)
+    CtpYN: r.ctp?'Y':'N',                      // CTP
+    DesignYN: r.design?'Y':'N',                // 디자인(도안)
+    "CmMaterial.CutYN": r.cut?'Y':'N',         // 재단
+    CutJeolsu: Number(r.cutjeol)               // 재단절수
+  }));
+  console.log('[저장 payload · SmartMES 매핑]', payload);
+  toast('저장 완료 · 활성 항목 '+payload.length+'건 (콘솔 F12 확인)');
+});
+
+// 엑셀(CSV) 다운로드 — 실행/검증 편의
+document.getElementById('btnExcel').addEventListener('click',()=>{
+  const head=['작업번호','작업상태','제품명','업체명','화급','종이','CTP','디자인','재단','재단절수','총수량'];
+  const lines=[head.join(',')].concat(filtered.map(r=>[
+    r.no,r.state,'"'+r.name.replace(/"/g,'""')+'"',r.vendor,
+    r.urgent?'Y':'N',r.paper?'Y':'N',r.ctp?'Y':'N',r.design?'Y':'N',r.cut?'Y':'N',
+    Number(r.cutjeol).toFixed(2),r.total
+  ].join(',')));
+  const blob=new Blob(["﻿"+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='작업지시등록.csv'; document.body.appendChild(a); a.click(); a.remove();
+  toast('엑셀(CSV) 다운로드');
+});
+
+['btnBatch','btnDelete','btnPrint'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',()=>toast('데모: '+document.getElementById(id).textContent.trim()+' (정식 버전에서 구현)'));
+});
+
+let toastTimer=null;
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+/* 초기 렌더 */
+renderMaster(); renderDetail();
+
+/* =========================================================================
+   v7.9 · 기준관리 (SmartMES 관계형 DB 반영 · FK 연결·연동)
+   조인키는 SmartMES 원본 외래키 그대로: parent → child = [[parentCol, childCol], ...]
+   ========================================================================= */
+const BAS = [
+  // ===== v8.5 : 시스템관리 그룹 (SFACTORY 기존 테이블 CmCorp·CodeUser·PERMISSION + DB백업 유틸 반영) =====
+  { key:'CmCorp', label:'자사정보', group:'시스템관리', pk:['CorpId'],
+    cols:[{k:'CorpId',t:'사업장코드',ro:1},{k:'CorpName',t:'회사명'},{k:'CorpNo',t:'사업자등록번호'},{k:'CorpRegNo',t:'법인등록번호'},
+          {k:'PresiName',t:'대표자명'},{k:'OpenDate',t:'개업년월일'},{k:'BussinessCategory',t:'업종'},{k:'BussinessField',t:'업태'},
+          {k:'Tel',t:'전화번호'},{k:'Fax',t:'팩스번호'},{k:'MasterYn',t:'주사업장',type:'check'},{k:'PostNo',t:'우편번호'},{k:'Address',t:'사업장주소'}],
+    rows:[
+      {CorpId:'10',CorpName:'(주)삼화당피앤티',CorpNo:'123-45-12345',CorpRegNo:'123-45-12345',PresiName:'이경수',OpenDate:'1985-08-01',BussinessCategory:'기타 인쇄업',BussinessField:'기타 인쇄업',Tel:'02-464-3752',Fax:'02-465-5542',MasterYn:true,PostNo:'12139',Address:'경기도 남양주시 진건읍 진관산단로59번길 39'},
+    ],
+    children:[] },
+  { key:'CodeUser', label:'사용자관리', group:'시스템관리', pk:['CorpId','EmpNo'],
+    cols:[{k:'CorpId',t:'CorpId',ro:1},{k:'EmpNo',t:'사번',ro:1},{k:'Name',t:'성명'},{k:'DeptCode',t:'부서'},{k:'Title',t:'직위'},
+          {k:'Permission',t:'권한'},{k:'CellPhone',t:'휴대폰'},{k:'Masterkey',t:'마스터',type:'check'}],
+    rows:[
+      {CorpId:'10',EmpNo:'admin',Name:'관리자',DeptCode:'전산',Title:'관리자',Permission:'ADMIN',CellPhone:'',Masterkey:true},
+      {CorpId:'10',EmpNo:'E001',Name:'이영업',DeptCode:'영업',Title:'과장',Permission:'USER',CellPhone:'010-1111-1111',Masterkey:false},
+      {CorpId:'10',EmpNo:'E002',Name:'홍기사',DeptCode:'생산',Title:'반장',Permission:'FIELD',CellPhone:'010-2222-2222',Masterkey:false},
+      {CorpId:'10',EmpNo:'E003',Name:'박기사',DeptCode:'생산',Title:'사원',Permission:'FIELD',CellPhone:'010-3333-3333',Masterkey:false},
+    ],
+    children:[] },
+  { key:'PERMISSION', label:'사용자권한등록', group:'시스템관리', pk:['CorpId','DEPT_CD','EMPL_NO','CLASS','PTYPE'],
+    cols:[{k:'CorpId',t:'CorpId',ro:1},{k:'DEPT_CD',t:'부서코드'},{k:'EMPL_NO',t:'사번'},{k:'CLASS',t:'권한클래스'},{k:'PTYPE',t:'권한유형'}],
+    rows:[
+      {CorpId:'10',DEPT_CD:'전산',EMPL_NO:'admin',CLASS:'ADMIN',PTYPE:'ALL'},
+      {CorpId:'10',DEPT_CD:'영업',EMPL_NO:'E001',CLASS:'USER',PTYPE:'수주/기준'},
+      {CorpId:'10',DEPT_CD:'생산',EMPL_NO:'E002',CLASS:'FIELD',PTYPE:'생산/실적'},
+      {CorpId:'10',DEPT_CD:'생산',EMPL_NO:'E003',CLASS:'FIELD',PTYPE:'생산/실적'},
+    ],
+    children:[] },
+  { key:'DBBackup', label:'DB백업', group:'시스템관리', pk:['BackupNo'],
+    cols:[{k:'BackupNo',t:'번호',ro:1},{k:'BackupDate',t:'백업일시',ro:1},{k:'FileName',t:'파일명',ro:1},{k:'SizeMB',t:'크기(MB)',ro:1,type:'num'},{k:'Type',t:'유형',ro:1},{k:'Status',t:'상태',ro:1}],
+    rows:[
+      {BackupNo:1,BackupDate:'2026-09-12 23:00',FileName:'SAMHWADANG_20260912.bak',SizeMB:512,Type:'자동(일)',Status:'성공'},
+      {BackupNo:2,BackupDate:'2026-09-13 23:00',FileName:'SAMHWADANG_20260913.bak',SizeMB:518,Type:'자동(일)',Status:'성공'},
+      {BackupNo:3,BackupDate:'2026-09-14 09:30',FileName:'SAMHWADANG_20260914_manual.bak',SizeMB:520,Type:'수동',Status:'성공'},
+    ],
+    children:[] },
+  { key:'CmCustomer', label:'거래처', group:'기준정보관리', pk:['CorpId','CustCode'],
+    cols:[{k:'CorpId',t:'CorpId',ro:1},{k:'CustCode',t:'거래처코드',ro:1},{k:'CustName',t:'거래처명'},
+          {k:'CustType',t:'구분'},{k:'PresiName',t:'대표자'},{k:'Tel',t:'전화'},{k:'SalesMan',t:'영업담당'},
+          {k:'RecentlyUsedYN',t:'사용',type:'check'}],
+    rows:[
+      {CorpId:'001',CustCode:'중외',CustName:'중외제약',CustType:'매출처',PresiName:'김중외',Tel:'02-000-1000',SalesMan:'이영업',RecentlyUsedYN:Y},
+      {CorpId:'001',CustCode:'한미',CustName:'한미약품',CustType:'매출처',PresiName:'박한미',Tel:'02-111-2000',SalesMan:'이영업',RecentlyUsedYN:Y},
+      {CorpId:'001',CustCode:'코스맥',CustName:'코스맥스',CustType:'매출처',PresiName:'정코스',Tel:'031-222-3000',SalesMan:'최영업',RecentlyUsedYN:Y},
+      {CorpId:'001',CustCode:'엔코스',CustName:'엔코스',CustType:'매출처',PresiName:'유엔코',Tel:'031-333-4000',SalesMan:'최영업',RecentlyUsedYN:Y},
+      {CorpId:'001',CustCode:'경동',CustName:'경동제약',CustType:'매출처',PresiName:'강경동',Tel:'02-444-5000',SalesMan:'이영업',RecentlyUsedYN:Y},
+      {CorpId:'001',CustCode:'신승',CustName:'신승지류',CustType:'매입처',PresiName:'조신승',Tel:'031-555-6000',SalesMan:'',RecentlyUsedYN:Y},
+    ],
+    children:[
+      { key:'CmCustomerMan', label:'담당자', on:[['CorpId','CorpId'],['CustCode','CustCode']],
+        cols:[{k:'ManName',t:'담당자'},{k:'Position',t:'직위'},{k:'Tel',t:'연락처'},{k:'Email',t:'이메일'}],
+        rows:[
+          {CorpId:'001',CustCode:'중외',ManName:'김담당',Position:'과장',Tel:'010-1000-0001',Email:'kim@jw.com'},
+          {CorpId:'001',CustCode:'중외',ManName:'이담당',Position:'대리',Tel:'010-1000-0002',Email:'lee@jw.com'},
+          {CorpId:'001',CustCode:'한미',ManName:'박담당',Position:'차장',Tel:'010-2000-0001',Email:'park@hanmi.com'},
+          {CorpId:'001',CustCode:'코스맥',ManName:'최담당',Position:'사원',Tel:'010-3000-0001',Email:'choi@cosmax.com'},
+          {CorpId:'001',CustCode:'엔코스',ManName:'유담당',Position:'대리',Tel:'010-4000-0001',Email:'yu@encos.com'},
+        ]},
+      { key:'CmShipTo', label:'납품처', on:[['CorpId','CorpId'],['CustCode','CustCode']],
+        cols:[{k:'ShipToCode',t:'납품처코드'},{k:'ShipToName',t:'납품처명'},{k:'Address',t:'주소'}],
+        rows:[
+          {CorpId:'001',CustCode:'중외',ShipToCode:'JW-01',ShipToName:'중외 당진공장',Address:'충남 당진시 ...'},
+          {CorpId:'001',CustCode:'중외',ShipToCode:'JW-02',ShipToName:'중외 화성물류',Address:'경기 화성시 ...'},
+          {CorpId:'001',CustCode:'한미',ShipToCode:'HM-01',ShipToName:'한미 팔탄공장',Address:'경기 화성시 ...'},
+          {CorpId:'001',CustCode:'경동',ShipToCode:'KD-01',ShipToName:'경동 향남물류',Address:'경기 화성시 ...'},
+        ]},
+    ]},
+
+  { key:'CmMaterial', label:'품목', pk:['CorpId','MaterialCode'],
+    cols:[{k:'CorpId',t:'CorpId',ro:1},{k:'MaterialCode',t:'품목코드',ro:1},{k:'MaterialName',t:'품목명'},
+          {k:'CustName',t:'거래처'},{k:'Cut',t:'절수',type:'num'},{k:'Cut2',t:'제품절수',type:'num'},
+          {k:'Paper_quality',t:'종이자재'},{k:'UrgentYN',t:'화급',type:'check'},{k:'CutYN',t:'재단',type:'check'},
+          {k:'SaleUnitPrice',t:'판매단가',type:'num'}],
+    rows:[
+      {CorpId:'001',MaterialCode:'M0001',MaterialName:'피나스타정 설명서',CustName:'중외제약',Cut:3,Cut2:8,Paper_quality:'모조지70종',UrgentYN:Y,CutYN:N,SaleUnitPrice:45},
+      {CorpId:'001',MaterialCode:'M0002',MaterialName:'피나스타정 5mg 30정 C/S',CustName:'중외제약',Cut:2,Cut2:12,Paper_quality:'IV350국횡',UrgentYN:N,CutYN:N,SaleUnitPrice:60},
+      {CorpId:'001',MaterialCode:'M0003',MaterialName:'리바로켓정 2/10mg 설명서',CustName:'중외제약',Cut:3,Cut2:4,Paper_quality:'60모조종',UrgentYN:Y,CutYN:N,SaleUnitPrice:40},
+      {CorpId:'001',MaterialCode:'M0004',MaterialName:'메수리드정 설명서(신)',CustName:'중외제약',Cut:2,Cut2:10,Paper_quality:'모조지70종',UrgentYN:Y,CutYN:N,SaleUnitPrice:38},
+      {CorpId:'001',MaterialCode:'M0005',MaterialName:'콜라겐 아이크림 케이스',CustName:'엔코스',Cut:3,Cut2:3,Paper_quality:'IV300종',UrgentYN:N,CutYN:N,SaleUnitPrice:120},
+    ],
+    children:[
+      { key:'CmMaterialPrice', label:'단가이력', on:[['CorpId','CorpId'],['MaterialCode','MaterialCode']],
+        cols:[{k:'ApplyDate',t:'적용일'},{k:'UnitPrice',t:'단가',type:'num'},{k:'Currency',t:'통화'}],
+        rows:[
+          {CorpId:'001',MaterialCode:'M0001',ApplyDate:'2026-01-01',UnitPrice:43,Currency:'KRW'},
+          {CorpId:'001',MaterialCode:'M0001',ApplyDate:'2026-07-01',UnitPrice:45,Currency:'KRW'},
+          {CorpId:'001',MaterialCode:'M0003',ApplyDate:'2026-03-01',UnitPrice:40,Currency:'KRW'},
+          {CorpId:'001',MaterialCode:'M0005',ApplyDate:'2026-06-01',UnitPrice:120,Currency:'KRW'},
+        ]},
+      { key:'CmMaterialExamStd', label:'검사규격', on:[['CorpId','CorpId'],['MaterialCode','MaterialCode']],
+        cols:[{k:'ExamItem',t:'검사항목'},{k:'Standard',t:'규격'},{k:'Method',t:'방법'}],
+        rows:[
+          {CorpId:'001',MaterialCode:'M0001',ExamItem:'인쇄상태',Standard:'한도견본 이내',Method:'육안'},
+          {CorpId:'001',MaterialCode:'M0001',ExamItem:'치수',Standard:'±0.5mm',Method:'자'},
+          {CorpId:'001',MaterialCode:'M0002',ExamItem:'접착강도',Standard:'박리없음',Method:'수작업'},
+        ]},
+    ]},
+
+  { key:'CmProcess', label:'공정', pk:['CorpId','ProcessCode'],
+    cols:[{k:'CorpId',t:'CorpId',ro:1},{k:'ProcessCode',t:'공정코드',ro:1},{k:'ProcessName',t:'공정명'},
+          {k:'WorkType',t:'구분'},{k:'WorkDept',t:'부서'},{k:'StdPrice',t:'표준단가',type:'num'},{k:'Warehouse',t:'창고'}],
+    rows:[
+      {CorpId:'001',ProcessCode:'15',ProcessName:'종이',WorkType:'외주',WorkDept:'자재',StdPrice:0,Warehouse:'자재창고'},
+      {CorpId:'001',ProcessCode:'20',ProcessName:'재단',WorkType:'사내',WorkDept:'생산',StdPrice:5,Warehouse:'재공'},
+      {CorpId:'001',ProcessCode:'30',ProcessName:'인쇄',WorkType:'사내',WorkDept:'생산',StdPrice:12,Warehouse:'재공'},
+      {CorpId:'001',ProcessCode:'50',ProcessName:'톰슨',WorkType:'사내',WorkDept:'생산',StdPrice:8,Warehouse:'재공'},
+      {CorpId:'001',ProcessCode:'70',ProcessName:'접착',WorkType:'사내',WorkDept:'생산',StdPrice:6,Warehouse:'재공'},
+      {CorpId:'001',ProcessCode:'90',ProcessName:'포장',WorkType:'사내',WorkDept:'생산',StdPrice:4,Warehouse:'제품창고'},
+    ],
+    children:[
+      { key:'CmLine', label:'라인', on:[['CorpId','CorpId'],['ProcessCode','ProcessCode']],
+        cols:[{k:'LineCode',t:'라인코드'},{k:'Title',t:'라인명'},{k:'MachineCode',t:'설비코드'},{k:'StdCT',t:'표준CT',type:'num'}],
+        rows:[
+          {CorpId:'001',ProcessCode:'30',LineCode:'L1',Title:'인쇄 1호기 라인',MachineCode:'P01',StdCT:3.5},
+          {CorpId:'001',ProcessCode:'30',LineCode:'L2',Title:'인쇄 2호기 라인',MachineCode:'P02',StdCT:3.2},
+          {CorpId:'001',ProcessCode:'20',LineCode:'L1',Title:'재단 1라인',MachineCode:'C01',StdCT:1.8},
+          {CorpId:'001',ProcessCode:'50',LineCode:'L1',Title:'톰슨 1라인',MachineCode:'T01',StdCT:2.1},
+        ]},
+      { key:'CmProcessPrice', label:'공정단가', on:[['CorpId','CorpId'],['ProcessCode','ProcessCode']],
+        cols:[{k:'ApplyDate',t:'적용일'},{k:'Price',t:'단가',type:'num'},{k:'Unit',t:'단위'}],
+        rows:[
+          {CorpId:'001',ProcessCode:'30',ApplyDate:'2026-01-01',Price:12,Unit:'통'},
+          {CorpId:'001',ProcessCode:'20',ApplyDate:'2026-01-01',Price:5,Unit:'연'},
+        ]},
+    ]},
+
+  { key:'CodeMachine', label:'설비', pk:['MachineCode'],
+    cols:[{k:'MachineCode',t:'설비코드',ro:1},{k:'Title',t:'설비명'},{k:'EquType',t:'유형'},
+          {k:'ChargeNm',t:'담당자'},{k:'Maker',t:'제조사'},{k:'StartDate',t:'가동일'}],
+    rows:[
+      {MachineCode:'P01',Title:'인쇄 1호기',EquType:'인쇄',ChargeNm:'홍기사',Maker:'고모리',StartDate:'2015-03-01'},
+      {MachineCode:'P02',Title:'인쇄 2호기',EquType:'인쇄',ChargeNm:'김기사',Maker:'하이델베르그',StartDate:'2018-05-01'},
+      {MachineCode:'C01',Title:'재단기',EquType:'재단',ChargeNm:'박기사',Maker:'폴라',StartDate:'2016-02-01'},
+      {MachineCode:'T01',Title:'톰슨기',EquType:'톰슨',ChargeNm:'최기사',Maker:'하청',StartDate:'2019-09-01'},
+    ],
+    children:[
+      { key:'MachineRepair', label:'수리이력', on:[['MachineCode','MachineCode']],
+        cols:[{k:'RepairDate',t:'수리일'},{k:'Content',t:'내용'},{k:'Cost',t:'비용',type:'num'}],
+        rows:[
+          {MachineCode:'P01',RepairDate:'2026-02-10',Content:'유닛 롤러 교체',Cost:350000},
+          {MachineCode:'P01',RepairDate:'2026-06-22',Content:'잉크키 점검',Cost:80000},
+          {MachineCode:'T01',RepairDate:'2026-04-05',Content:'칼선 교체',Cost:120000},
+        ]},
+      { key:'MachineInOut', label:'입출이력', on:[['MachineCode','MachineCode']],
+        cols:[{k:'Date',t:'일자'},{k:'Type',t:'구분'},{k:'Location',t:'위치'}],
+        rows:[
+          {MachineCode:'P01',Date:'2015-03-01',Type:'입고',Location:'인쇄실'},
+          {MachineCode:'P02',Date:'2018-05-01',Type:'입고',Location:'인쇄실'},
+        ]},
+    ]},
+
+  { key:'CodeUser', label:'사원', pk:['CorpId','EmpNo'],
+    cols:[{k:'CorpId',t:'CorpId',ro:1},{k:'EmpNo',t:'사번',ro:1},{k:'Name',t:'성명'},
+          {k:'DeptCode',t:'부서'},{k:'Title',t:'직위'},{k:'CellPhone',t:'휴대폰'}],
+    rows:[
+      {CorpId:'001',EmpNo:'E001',Name:'이영업',DeptCode:'영업',Title:'과장',CellPhone:'010-1111-1111'},
+      {CorpId:'001',EmpNo:'E002',Name:'홍기사',DeptCode:'생산',Title:'반장',CellPhone:'010-2222-2222'},
+      {CorpId:'001',EmpNo:'E003',Name:'박기사',DeptCode:'생산',Title:'사원',CellPhone:'010-3333-3333'},
+    ],
+    children:[] },
+
+  { key:'CodeCategoryPivot1', label:'공통코드', pk:['GroupCode1'],
+    cols:[{k:'GroupCode1',t:'분류코드',ro:1},{k:'GroupName1',t:'분류명'}],
+    rows:[
+      {GroupCode1:'C29',GroupName1:'공정'},{GroupCode1:'P31',GroupName1:'작업상태'},
+      {GroupCode1:'P32',GroupName1:'부서'},{GroupCode1:'P62',GroupName1:'불량유형'},
+    ],
+    children:[
+      { key:'CodeCategoryPivot2', label:'세부코드', on:[['GroupCode1','GroupCode1']],
+        cols:[{k:'GroupCode2',t:'코드'},{k:'GroupName2',t:'명칭'}],
+        rows:[
+          {GroupCode1:'C29',GroupCode2:'15',GroupName2:'종이'},{GroupCode1:'C29',GroupCode2:'20',GroupName2:'재단'},
+          {GroupCode1:'C29',GroupCode2:'30',GroupName2:'인쇄'},{GroupCode1:'C29',GroupCode2:'90',GroupName2:'포장'},
+          {GroupCode1:'P31',GroupCode2:'10',GroupName2:'지시'},{GroupCode1:'P31',GroupCode2:'50',GroupName2:'진행'},
+          {GroupCode1:'P31',GroupCode2:'90',GroupName2:'완료'},
+          {GroupCode1:'P62',GroupCode2:'01',GroupName2:'인쇄불량'},{GroupCode1:'P62',GroupCode2:'02',GroupName2:'재단불량'},
+        ]},
+    ]},
+];
+
+/* ---- v8.0 : 수주/자재/출하/품질/경영/설비 모듈 (SmartMES 테이블·FK) ---- */
+const SALES=[
+ {key:'SdOrderMaster',label:'수주',pk:['CorpId','SdOrderNo'],
+  cols:[{k:'CorpId',t:'CorpId',ro:1},{k:'SdOrderNo',t:'수주번호',ro:1},{k:'SoldToName',t:'거래처'},{k:'OrderType',t:'수주구분'},{k:'ObtainDate',t:'수주일'},{k:'DeliveryDate',t:'납기일'},{k:'Amount',t:'금액',type:'num'},{k:'SalesManName',t:'영업담당'},{k:'State',t:'상태'}],
+  rows:[
+   {CorpId:'001',SdOrderNo:'SO-2026-001',SoldToName:'중외제약',OrderType:'정상',ObtainDate:'2026-09-01',DeliveryDate:'2026-09-15',Amount:4482000,SalesManName:'이영업',State:'확정'},
+   {CorpId:'001',SdOrderNo:'SO-2026-002',SoldToName:'한미약품',OrderType:'정상',ObtainDate:'2026-09-02',DeliveryDate:'2026-09-18',Amount:152000,SalesManName:'이영업',State:'확정'},
+   {CorpId:'001',SdOrderNo:'SO-2026-003',SoldToName:'엔코스',OrderType:'긴급',ObtainDate:'2026-09-03',DeliveryDate:'2026-09-10',Amount:1200000,SalesManName:'최영업',State:'접수'}],
+  children:[
+   {key:'SdOrderDetail',label:'수주상세',on:[['CorpId','CorpId'],['SdOrderNo','SdOrderNo']],
+    cols:[{k:'MaterialName',t:'품목'},{k:'OrderQty',t:'수주수량',type:'num'},{k:'UnitPrice',t:'단가',type:'num'},{k:'Price',t:'금액',type:'num'},{k:'DeliveryDate',t:'납기'}],
+    rows:[
+     {CorpId:'001',SdOrderNo:'SO-2026-001',MaterialName:'피나스타정 설명서',OrderQty:42000,UnitPrice:45,Price:1890000,DeliveryDate:'2026-09-15'},
+     {CorpId:'001',SdOrderNo:'SO-2026-001',MaterialName:'피나스타정 5mg 30정 C/S',OrderQty:43200,UnitPrice:60,Price:2592000,DeliveryDate:'2026-09-15'},
+     {CorpId:'001',SdOrderNo:'SO-2026-002',MaterialName:'메수리드정 설명서(신)',OrderQty:4000,UnitPrice:38,Price:152000,DeliveryDate:'2026-09-18'},
+     {CorpId:'001',SdOrderNo:'SO-2026-003',MaterialName:'콜라겐 아이크림 케이스',OrderQty:10000,UnitPrice:120,Price:1200000,DeliveryDate:'2026-09-10'}]}]},
+ {key:'RequestMaster',label:'출하의뢰',pk:['CorpId','ReqNo'],
+  cols:[{k:'CorpId',t:'CorpId',ro:1},{k:'ReqNo',t:'의뢰번호',ro:1},{k:'CustName',t:'거래처'},{k:'ReqDate',t:'의뢰일'},{k:'State',t:'상태'}],
+  rows:[
+   {CorpId:'001',ReqNo:'RQ-001',CustName:'중외제약',ReqDate:'2026-09-05',State:'대기'},
+   {CorpId:'001',ReqNo:'RQ-002',CustName:'한미약품',ReqDate:'2026-09-06',State:'완료'}],
+  children:[
+   {key:'RequestDetail',label:'의뢰상세',on:[['CorpId','CorpId'],['ReqNo','ReqNo']],
+    cols:[{k:'ProductName',t:'품목'},{k:'Qty',t:'수량',type:'num'}],
+    rows:[
+     {CorpId:'001',ReqNo:'RQ-001',ProductName:'피나스타정 설명서',Qty:42000},
+     {CorpId:'001',ReqNo:'RQ-002',ProductName:'메수리드정 설명서(신)',Qty:4000}]}]},
+];
+const MAT=[
+ {key:'PurchaseMaster',label:'발주',pk:['CorpId','StoNo'],
+  cols:[{k:'CorpId',t:'CorpId',ro:1},{k:'StoNo',t:'발주번호',ro:1},{k:'StoDate',t:'발주일'},{k:'CustomerName',t:'매입처'},{k:'Cnt',t:'품목수',type:'num'},{k:'Price',t:'금액',type:'num'},{k:'Type',t:'구분'}],
+  rows:[
+   {CorpId:'001',StoNo:'PO-001',StoDate:'2026-09-01',CustomerName:'신승지류',Cnt:2,Price:3200000,Type:'원지'},
+   {CorpId:'001',StoNo:'PO-002',StoDate:'2026-09-03',CustomerName:'대한잉크',Cnt:1,Price:450000,Type:'부자재'}],
+  children:[
+   {key:'PurchaseDetail',label:'발주상세',on:[['CorpId','CorpId'],['StoNo','StoNo']],
+    cols:[{k:'ProductName',t:'자재명'},{k:'OrderQty',t:'발주수량',type:'num'},{k:'UnitPrice',t:'단가',type:'num'},{k:'Amount',t:'금액',type:'num'}],
+    rows:[
+     {CorpId:'001',StoNo:'PO-001',ProductName:'240SC 원지',OrderQty:500,UnitPrice:5000,Amount:2500000},
+     {CorpId:'001',StoNo:'PO-001',ProductName:'백K E골',OrderQty:200,UnitPrice:3500,Amount:700000},
+     {CorpId:'001',StoNo:'PO-002',ProductName:'옵셋 잉크(흑)',OrderQty:30,UnitPrice:15000,Amount:450000}]}]},
+ {key:'StockMaster',label:'입출고',pk:['CorpId','InOutNo'],
+  cols:[{k:'CorpId',t:'CorpId',ro:1},{k:'InOutNo',t:'입출번호',ro:1},{k:'WriteDate',t:'일자'},{k:'CustCode',t:'거래처'},{k:'FromHouseCode',t:'출고창고'},{k:'ToHouseCode',t:'입고창고'}],
+  rows:[
+   {CorpId:'001',InOutNo:'IO-001',WriteDate:'2026-09-02',CustCode:'신승',FromHouseCode:'-',ToHouseCode:'자재창고'},
+   {CorpId:'001',InOutNo:'IO-002',WriteDate:'2026-09-04',CustCode:'-',FromHouseCode:'자재창고',ToHouseCode:'재공'}],
+  children:[
+   {key:'StockDetail',label:'입출상세',on:[['CorpId','CorpId'],['InOutNo','InOutNo']],
+    cols:[{k:'ProductCode',t:'품목'},{k:'Type',t:'구분'},{k:'Qty',t:'수량',type:'num'}],
+    rows:[
+     {CorpId:'001',InOutNo:'IO-001',ProductCode:'240SC 원지',Type:'입고',Qty:500},
+     {CorpId:'001',InOutNo:'IO-002',ProductCode:'240SC 원지',Type:'출고',Qty:120}]}]},
+];
+const SHIP=[
+ {key:'SalesMaster',label:'매출/출하',pk:['CorpId','SalesNo'],
+  cols:[{k:'CorpId',t:'CorpId',ro:1},{k:'SalesNo',t:'매출번호',ro:1},{k:'SalesDate',t:'매출일'},{k:'CustName',t:'거래처'},{k:'Qty',t:'수량',type:'num'},{k:'TotalPrice',t:'금액',type:'num'},{k:'Status',t:'상태'}],
+  rows:[
+   {CorpId:'001',SalesNo:'SL-001',SalesDate:'2026-09-15',CustName:'중외제약',Qty:42000,TotalPrice:1890000,Status:'출하완료'},
+   {CorpId:'001',SalesNo:'SL-002',SalesDate:'2026-09-18',CustName:'한미약품',Qty:4000,TotalPrice:152000,Status:'출하대기'}],
+  children:[
+   {key:'SalesDetail',label:'매출상세',on:[['CorpId','CorpId'],['SalesNo','SalesNo']],
+    cols:[{k:'ProductCode',t:'품목'},{k:'Qty',t:'수량',type:'num'},{k:'UnitPrice',t:'단가',type:'num'},{k:'TotalPrice',t:'금액',type:'num'},{k:'CarNo',t:'차량'},{k:'DeliveryDate',t:'납품일'}],
+    rows:[
+     {CorpId:'001',SalesNo:'SL-001',ProductCode:'피나스타정 설명서',Qty:42000,UnitPrice:45,TotalPrice:1890000,CarNo:'12가3456',DeliveryDate:'2026-09-15'},
+     {CorpId:'001',SalesNo:'SL-002',ProductCode:'메수리드정 설명서(신)',Qty:4000,UnitPrice:38,TotalPrice:152000,CarNo:'34나5678',DeliveryDate:'2026-09-18'}]},
+   {key:'SalesLotNo',label:'출하 LOT',on:[['CorpId','CorpId'],['SalesNo','SalesNo']],
+    cols:[{k:'LotNo',t:'LOT번호'},{k:'Qty',t:'수량',type:'num'}],
+    rows:[
+     {CorpId:'001',SalesNo:'SL-001',LotNo:'L2609-001',Qty:21000},
+     {CorpId:'001',SalesNo:'SL-001',LotNo:'L2609-002',Qty:21000}]}]},
+];
+const QC=[
+ {key:'OrderExamResult',label:'공정검사',pk:['CorpId','OrderNo','ExamDate'],
+  cols:[{k:'CorpId',t:'CorpId',ro:1},{k:'OrderNo',t:'작업번호',ro:1},{k:'ExamDate',t:'검사일',ro:1},{k:'Result',t:'판정'},{k:'Inspector',t:'검사자'}],
+  rows:[
+   {CorpId:'001',OrderNo:'20260814-0012',ExamDate:'2026-09-06',Result:'합격',Inspector:'김검사'},
+   {CorpId:'001',OrderNo:'20260819-0007',ExamDate:'2026-09-07',Result:'조건부',Inspector:'박검사'}],
+  children:[
+   {key:'OrderExam',label:'검사항목',on:[['CorpId','CorpId'],['OrderNo','OrderNo'],['ExamDate','ExamDate']],
+    cols:[{k:'Item',t:'항목'},{k:'Standard',t:'규격'},{k:'Judge',t:'판정'}],
+    rows:[
+     {CorpId:'001',OrderNo:'20260814-0012',ExamDate:'2026-09-06',Item:'인쇄농도',Standard:'견본±5%',Judge:'합격'},
+     {CorpId:'001',OrderNo:'20260814-0012',ExamDate:'2026-09-06',Item:'견본대조',Standard:'일치',Judge:'합격'},
+     {CorpId:'001',OrderNo:'20260819-0007',ExamDate:'2026-09-07',Item:'톰슨눌림',Standard:'없음',Judge:'조건부'}]}]},
+ {key:'ExamRawMaterial',label:'원자재검사',pk:['CorpId','LotNo'],
+  cols:[{k:'CorpId',t:'CorpId',ro:1},{k:'LotNo',t:'LOT',ro:1},{k:'MaterialName',t:'자재'},{k:'ExamDate',t:'검사일'},{k:'Result',t:'판정'}],
+  rows:[
+   {CorpId:'001',LotNo:'RM-2609-01',MaterialName:'240SC 원지',ExamDate:'2026-09-02',Result:'합격'},
+   {CorpId:'001',LotNo:'RM-2609-02',MaterialName:'백K E골',ExamDate:'2026-09-02',Result:'불합격'}],
+  children:[
+   {key:'ExamRawMaterialFault',label:'불량내역',on:[['CorpId','CorpId'],['LotNo','LotNo']],
+    cols:[{k:'FaultType',t:'불량유형'},{k:'Qty',t:'수량',type:'num'}],
+    rows:[{CorpId:'001',LotNo:'RM-2609-02',FaultType:'평량미달',Qty:15}]}]},
+];
+const MGMT=[
+ {key:'DailyWorkQty',label:'일일생산실적',pk:['WorkDate','ProcessName'],
+  cols:[{k:'WorkDate',t:'일자',ro:1},{k:'ProcessName',t:'공정',ro:1},{k:'GoodQty',t:'양품',ro:1,type:'num'},{k:'FaultQty',t:'불량',ro:1,type:'num'},{k:'Yield',t:'수율(%)',ro:1,type:'num'}],
+  rows:[
+   {WorkDate:'2026-09-06',ProcessName:'인쇄',GoodQty:41800,FaultQty:200,Yield:99.5},
+   {WorkDate:'2026-09-06',ProcessName:'톰슨',GoodQty:41500,FaultQty:300,Yield:99.3},
+   {WorkDate:'2026-09-07',ProcessName:'인쇄',GoodQty:124000,FaultQty:800,Yield:99.4}],
+  children:[]},
+ {key:'MonthlyFaultQty',label:'월별불량현황',pk:['YearMonth','FaultType'],
+  cols:[{k:'YearMonth',t:'년월',ro:1},{k:'FaultType',t:'불량유형',ro:1},{k:'Qty',t:'수량',ro:1,type:'num'},{k:'Ratio',t:'비율(%)',ro:1,type:'num'}],
+  rows:[
+   {YearMonth:'2026-08',FaultType:'인쇄불량',Qty:3200,Ratio:1.2},
+   {YearMonth:'2026-08',FaultType:'재단불량',Qty:1800,Ratio:0.7},
+   {YearMonth:'2026-09',FaultType:'인쇄불량',Qty:1500,Ratio:0.9}],
+  children:[]},
+];
+const EQP=[
+ {key:'CodeMachine',label:'설비',pk:['MachineCode'],
+  cols:[{k:'MachineCode',t:'설비코드',ro:1},{k:'Title',t:'설비명'},{k:'EquType',t:'유형'},{k:'ChargeNm',t:'담당자'},{k:'Maker',t:'제조사'},{k:'StartDate',t:'가동일'}],
+  rows:[
+   {MachineCode:'P01',Title:'인쇄 1호기',EquType:'인쇄',ChargeNm:'홍기사',Maker:'고모리',StartDate:'2015-03-01'},
+   {MachineCode:'P02',Title:'인쇄 2호기',EquType:'인쇄',ChargeNm:'김기사',Maker:'하이델베르그',StartDate:'2018-05-01'},
+   {MachineCode:'T01',Title:'톰슨기',EquType:'톰슨',ChargeNm:'최기사',Maker:'하청',StartDate:'2019-09-01'}],
+  children:[
+   {key:'MachineRepair',label:'수리이력',on:[['MachineCode','MachineCode']],cols:[{k:'RepairDate',t:'수리일'},{k:'Content',t:'내용'},{k:'Cost',t:'비용',type:'num'}],
+    rows:[{MachineCode:'P01',RepairDate:'2026-02-10',Content:'롤러 교체',Cost:350000},{MachineCode:'T01',RepairDate:'2026-04-05',Content:'칼선 교체',Cost:120000}]},
+   {key:'CodeCalibration',label:'교정이력',on:[['MachineCode','MachineCode']],cols:[{k:'CalDate',t:'교정일'},{k:'Result',t:'결과'},{k:'NextDate',t:'차기교정'}],
+    rows:[{MachineCode:'P01',CalDate:'2026-01-15',Result:'적합',NextDate:'2027-01-15'}]},
+   {key:'MachineDocument',label:'설비문서',on:[['MachineCode','MachineCode']],cols:[{k:'DocName',t:'문서명'},{k:'DocType',t:'종류'}],
+    rows:[{MachineCode:'P01',DocName:'사용설명서',DocType:'매뉴얼'},{MachineCode:'P01',DocName:'점검체크시트',DocType:'점검'}]}]},
+ {key:'JigMaster',label:'지그/금형',pk:['CorpId','JigID'],
+  cols:[{k:'CorpId',t:'CorpId',ro:1},{k:'JigID',t:'지그ID',ro:1},{k:'JigName',t:'지그명'},{k:'CustName',t:'거래처'},{k:'MakeDate',t:'제작일'}],
+  rows:[
+   {CorpId:'001',JigID:'JIG-001',JigName:'피나스타 톰슨목형',CustName:'중외제약',MakeDate:'2025-11-01'},
+   {CorpId:'001',JigID:'JIG-002',JigName:'콜라겐 케이스 목형',CustName:'엔코스',MakeDate:'2026-03-01'}],
+  children:[
+   {key:'JigAnnualPlan',label:'연간점검계획',on:[['CorpId','CorpId'],['JigID','JigID']],cols:[{k:'Year',t:'연도'},{k:'Month',t:'월',type:'num'},{k:'Plan',t:'계획'}],
+    rows:[{CorpId:'001',JigID:'JIG-001',Year:'2026',Month:3,Plan:'마모점검'},{CorpId:'001',JigID:'JIG-001',Year:'2026',Month:9,Plan:'정밀점검'}]}]},
+];
+
+/* ---- v8.2 : 생산관리 좌측 하위메뉴 화면(작업지시관리 외 8종) — SmartMES 테이블·FK ---- */
+const PRODSUB=[
+ // 1 작업지시서출력
+ {key:'OrderProgress',label:'작업지시서출력',pk:['CorpId','OrderNo'],
+  cols:[{k:'CorpId',t:'CorpId',ro:1},{k:'OrderNo',t:'작업번호',ro:1},{k:'ProductName',t:'제품명'},{k:'CustName',t:'업체'},{k:'DeliveryDate',t:'납기'},{k:'TotalQty',t:'총수량',type:'num'},{k:'State',t:'작업상태'}],
+  rows:[
+   {CorpId:'001',OrderNo:'20260811-0004',ProductName:'21그램)반려동물 지관 - 중',CustName:'21그램',DeliveryDate:'1900-01-01',TotalQty:1200,State:'지시'},
+   {CorpId:'001',OrderNo:'20260814-0012',ProductName:'피나스타정 설명서',CustName:'중외제약',DeliveryDate:'2026-09-08',TotalQty:42000,State:'지시'},
+   {CorpId:'001',OrderNo:'20260819-0007',ProductName:'리바로켓정 2/10mg 설명서',CustName:'중외제약',DeliveryDate:'2026-09-08',TotalQty:124800,State:'지시'}],
+  children:[
+   {key:'OrderRouting',label:'공정순서',on:[['CorpId','CorpId'],['OrderNo','OrderNo']],
+    cols:[{k:'Seq',t:'순번',type:'num'},{k:'ProcessName',t:'공정'},{k:'Unit',t:'단위'},{k:'GoodQty',t:'양품',type:'num'},{k:'State',t:'상태'}],
+    rows:[
+     {CorpId:'001',OrderNo:'20260811-0004',Seq:15,ProcessName:'종이',Unit:'연',GoodQty:2.4,State:'완료'},
+     {CorpId:'001',OrderNo:'20260811-0004',Seq:20,ProcessName:'재단',Unit:'연',GoodQty:2.4,State:'완료'},
+     {CorpId:'001',OrderNo:'20260811-0004',Seq:90,ProcessName:'포장',Unit:'매',GoodQty:0,State:'지시'},
+     {CorpId:'001',OrderNo:'20260814-0012',Seq:20,ProcessName:'재단',Unit:'연',GoodQty:84,State:'완료'},
+     {CorpId:'001',OrderNo:'20260814-0012',Seq:30,ProcessName:'인쇄',Unit:'개',GoodQty:41800,State:'진행'}]}]},
+ // 2 품목별공정모니터링
+ {key:'ItemProcessMonitor',label:'품목별공정모니터링',pk:['CorpId','MaterialCode'],
+  cols:[{k:'CorpId',t:'CorpId',ro:1},{k:'MaterialCode',t:'품목코드',ro:1},{k:'MaterialName',t:'품목명',ro:1},{k:'LastProcess',t:'현재공정',ro:1},{k:'Progress',t:'진척(%)',ro:1,type:'num'}],
+  rows:[
+   {CorpId:'001',MaterialCode:'M0001',MaterialName:'피나스타정 설명서',LastProcess:'인쇄',Progress:62},
+   {CorpId:'001',MaterialCode:'M0003',MaterialName:'리바로켓정 2/10mg 설명서',LastProcess:'재단',Progress:30},
+   {CorpId:'001',MaterialCode:'M0005',MaterialName:'콜라겐 아이크림 케이스',LastProcess:'톰슨',Progress:80}],
+  children:[
+   {key:'ItemProcessStat',label:'공정현황',on:[['CorpId','CorpId'],['MaterialCode','MaterialCode']],
+    cols:[{k:'ProcessName',t:'공정'},{k:'PlanQty',t:'계획',type:'num'},{k:'GoodQty',t:'양품',type:'num'},{k:'FaultQty',t:'불량',type:'num'}],
+    rows:[
+     {CorpId:'001',MaterialCode:'M0001',ProcessName:'재단',PlanQty:84,GoodQty:84,FaultQty:0},
+     {CorpId:'001',MaterialCode:'M0001',ProcessName:'인쇄',PlanQty:42000,GoodQty:41800,FaultQty:200},
+     {CorpId:'001',MaterialCode:'M0003',ProcessName:'재단',PlanQty:60,GoodQty:60,FaultQty:0}]}]},
+ // 3 기기별공정모니터링
+ {key:'MachineProcessMonitor',label:'기기별공정모니터링',pk:['MachineCode'],
+  cols:[{k:'MachineCode',t:'설비코드',ro:1},{k:'Title',t:'설비명',ro:1},{k:'Status',t:'가동상태',ro:1},{k:'CurrentOrder',t:'현재작업',ro:1},{k:'CurrentProduct',t:'현재품목',ro:1}],
+  rows:[
+   {MachineCode:'P01',Title:'인쇄 1호기',Status:'가동',CurrentOrder:'20260814-0012',CurrentProduct:'피나스타정 설명서'},
+   {MachineCode:'P02',Title:'인쇄 2호기',Status:'대기',CurrentOrder:'-',CurrentProduct:'-'},
+   {MachineCode:'T01',Title:'톰슨기',Status:'가동',CurrentOrder:'20260819-0007',CurrentProduct:'리바로켓정'}],
+  children:[
+   {key:'MachineTodayStat',label:'금일 공정실적',on:[['MachineCode','MachineCode']],
+    cols:[{k:'ProcessName',t:'공정'},{k:'GoodQty',t:'양품',type:'num'},{k:'FaultQty',t:'불량',type:'num'},{k:'Uptime',t:'가동시간'}],
+    rows:[
+     {MachineCode:'P01',ProcessName:'인쇄',GoodQty:41800,FaultQty:200,Uptime:'6.2h'},
+     {MachineCode:'T01',ProcessName:'톰슨',GoodQty:41500,FaultQty:300,Uptime:'5.1h'}]}]},
+ // 4 기기별 작업이력
+ {key:'MachineWorkQty',label:'기기별 작업이력',pk:['MachineCode','WorkDate','OrderNo'],
+  cols:[{k:'MachineCode',t:'설비',ro:1},{k:'WorkDate',t:'일자',ro:1},{k:'OrderNo',t:'작업번호',ro:1},{k:'ProductName',t:'제품',ro:1},{k:'GoodQty',t:'양품',ro:1,type:'num'},{k:'FaultQty',t:'불량',ro:1,type:'num'}],
+  rows:[
+   {MachineCode:'P01',WorkDate:'2026-09-06',OrderNo:'20260814-0012',ProductName:'피나스타정 설명서',GoodQty:41800,FaultQty:200},
+   {MachineCode:'P01',WorkDate:'2026-09-07',OrderNo:'20260819-0007',ProductName:'리바로켓정 설명서',GoodQty:124000,FaultQty:800},
+   {MachineCode:'T01',WorkDate:'2026-09-07',OrderNo:'20260819-0007',ProductName:'리바로켓정 설명서',GoodQty:123500,FaultQty:500}],
+  children:[]},
+ // 5 태그부착관리
+ {key:'OrderLot',label:'태그부착관리',pk:['CorpId','LotNo'],
+  cols:[{k:'CorpId',t:'CorpId',ro:1},{k:'LotNo',t:'LOT번호',ro:1},{k:'OrderNo',t:'작업번호'},{k:'ProductName',t:'제품'},{k:'Qty',t:'수량',type:'num'},{k:'TagPrinted',t:'태그발행',type:'check'},{k:'LotDate',t:'일자'}],
+  rows:[
+   {CorpId:'001',LotNo:'L2609-0001',OrderNo:'20260814-0012',ProductName:'피나스타정 설명서',Qty:21000,TagPrinted:Y,LotDate:'2026-09-06'},
+   {CorpId:'001',LotNo:'L2609-0002',OrderNo:'20260814-0012',ProductName:'피나스타정 설명서',Qty:20800,TagPrinted:N,LotDate:'2026-09-06'}],
+  children:[
+   {key:'OrderLotHistory',label:'LOT 이력',on:[['CorpId','CorpId'],['LotNo','LotNo']],
+    cols:[{k:'HistDate',t:'일시'},{k:'Event',t:'이벤트'},{k:'Qty',t:'수량',type:'num'}],
+    rows:[
+     {CorpId:'001',LotNo:'L2609-0001',HistDate:'2026-09-06 09:10',Event:'인쇄 투입',Qty:21000},
+     {CorpId:'001',LotNo:'L2609-0001',HistDate:'2026-09-06 11:40',Event:'톰슨 완료',Qty:20900}]}]},
+ // 6 생산실적등록
+ {key:'ProductionResult',label:'생산실적등록',pk:['CorpId','OrderNo','ProcessName'],
+  cols:[{k:'CorpId',t:'CorpId',ro:1},{k:'OrderNo',t:'작업번호',ro:1},{k:'ProcessName',t:'공정',ro:1},{k:'WorkDate',t:'작업일'},{k:'GoodQty',t:'양품',type:'num'},{k:'FaultQty',t:'불량',type:'num'},{k:'Worker',t:'작업자'}],
+  rows:[
+   {CorpId:'001',OrderNo:'20260814-0012',ProcessName:'인쇄',WorkDate:'2026-09-06',GoodQty:41800,FaultQty:200,Worker:'홍기사'},
+   {CorpId:'001',OrderNo:'20260819-0007',ProcessName:'인쇄',WorkDate:'2026-09-07',GoodQty:124000,FaultQty:800,Worker:'홍기사'},
+   {CorpId:'001',OrderNo:'20260814-0012',ProcessName:'톰슨',WorkDate:'2026-09-06',GoodQty:41500,FaultQty:300,Worker:'최기사'}],
+  children:[]},
+ // 7 작업일지
+ {key:'WorkLog',label:'작업일지',pk:['WorkDate','Shift'],
+  cols:[{k:'WorkDate',t:'일자',ro:1},{k:'Shift',t:'근무',ro:1},{k:'Writer',t:'작성자'},{k:'Content',t:'작업내용'},{k:'IssueNote',t:'특이사항'}],
+  rows:[
+   {WorkDate:'2026-09-06',Shift:'주간',Writer:'홍기사',Content:'피나스타정 설명서 인쇄',IssueNote:'잉크키 조정'},
+   {WorkDate:'2026-09-07',Shift:'주간',Writer:'홍기사',Content:'리바로켓정 인쇄',IssueNote:'-'}],
+  children:[]},
+ // 8 생산실적현황
+ {key:'DailyWorkQtyProd',label:'생산실적현황',pk:['WorkDate','ProcessName'],
+  cols:[{k:'WorkDate',t:'일자',ro:1},{k:'ProcessName',t:'공정',ro:1},{k:'GoodQty',t:'양품',ro:1,type:'num'},{k:'FaultQty',t:'불량',ro:1,type:'num'},{k:'Yield',t:'수율(%)',ro:1,type:'num'}],
+  rows:[
+   {WorkDate:'2026-09-06',ProcessName:'인쇄',GoodQty:41800,FaultQty:200,Yield:99.5},
+   {WorkDate:'2026-09-06',ProcessName:'톰슨',GoodQty:41500,FaultQty:300,Yield:99.3},
+   {WorkDate:'2026-09-07',ProcessName:'인쇄',GoodQty:124000,FaultQty:800,Yield:99.4}],
+  children:[]},
+];
+
+const MODULES={ bas:BAS, sales:SALES, mat:MAT, ship:SHIP, qc:QC, mgmt:MGMT, eqp:EQP, prodsub:PRODSUB };
+const MODLABEL={ bas:'기준관리', sales:'수주관리', mat:'자재관리', ship:'출하관리', qc:'품질관리', mgmt:'경영관리', eqp:'설비관리' };
+const GNBID={ bas:'gnbBas', prod:'gnbProd', sales:'gnbSales', mat:'gnbMat', ship:'gnbShip', qc:'gnbQc', mgmt:'gnbMgmt', eqp:'gnbEqp' };
+let CURMOD='bas';
+function curList(){ return MODULES[CURMOD]; }
+
+let basEntIdx=0, basRowIdx=0, basInit=false, basFiltered=[];
+
+function switchView(v){
+  const prod = (v==='prod');
+  document.getElementById('view-prod').hidden = !prod;
+  document.getElementById('view-bas').hidden  = prod;
+  document.getElementById('side-prod').hidden = !prod;
+  document.getElementById('side-bas').hidden  = prod;
+  Object.values(GNBID).forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('on'); });
+  const onId = GNBID[v]; if(document.getElementById(onId)) document.getElementById(onId).classList.add('on');
+  if(!prod){
+    CURMOD = v; basEntIdx = 0;
+    const st=document.querySelector('#side-bas .subttl'); if(st) st.textContent = MODLABEL[v]+' (SmartMES)';
+    renderBasMenu(); selectEntity(0);
+  } else {
+    setProdPill(0);
+  }
+}
+
+/* ---- v8.2 : 생산관리 좌측 하위메뉴 활성화 (작업지시관리=0 → 작업지시등록, 1~8 → 하위 화면) ---- */
+function setProdPill(i){
+  document.querySelectorAll('#side-prod .men').forEach((el,k)=>el.classList.toggle('on', k===i));
+}
+function prodSub(i){
+  // 생산관리 컨텍스트 유지(좌측 pills 그대로 노출)
+  Object.values(GNBID).forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('on'); });
+  const gp=document.getElementById('gnbProd'); if(gp) gp.classList.add('on');
+  document.getElementById('side-prod').hidden=false;
+  document.getElementById('side-bas').hidden=true;
+  setProdPill(i);
+  if(i===0){ // 작업지시관리 → 기존 작업지시등록(불변)
+    document.getElementById('view-prod').hidden=false;
+    document.getElementById('view-bas').hidden=true;
+    return;
+  }
+  // 그 외 8개 → 제네릭 화면(view-bas)에 생산관리 하위 엔티티 렌더
+  document.getElementById('view-prod').hidden=true;
+  document.getElementById('view-bas').hidden=false;
+  CURMOD='prodsub'; basEntIdx=i-1;
+  renderBasMenu(); selectEntity(i-1);
+}
+
+function renderBasMenu(){
+  const m=document.getElementById('basMenu'); m.innerHTML='';
+  let lastG=null;
+  curList().forEach((e,i)=>{
+    if(CURMOD==='bas'){
+      const g=e.group||'기준정보관리';
+      if(g!==lastG){ lastG=g; const h=document.createElement('div'); h.className='subttl'; h.style.marginTop=(i===0?'2px':'12px'); h.textContent='▸ '+g; m.appendChild(h); }
+    }
+    const d=document.createElement('div'); d.className='ent'+(i===basEntIdx?' on':'');
+    d.innerHTML=`${e.label}<span class="cnt">${e.rows.length}</span>`;
+    d.onclick=()=>selectEntity(i); m.appendChild(d);
+  });
+}
+
+function selectEntity(i){
+  basEntIdx=i; basRowIdx=0;
+  document.querySelectorAll('#basMenu .ent').forEach((el,k)=>el.classList.toggle('on',k===i));
+  const e=curList()[i];
+  document.getElementById('basTab').textContent = e.label+' 관리';
+  document.getElementById('basTitle').textContent = e.label;
+  document.getElementById('basCap').textContent = e.label;
+  document.getElementById('basMap').textContent = e.key+' · PK('+e.pk.join(', ')+')';
+  const pib=document.getElementById('prodInfoBtn'); if(pib) pib.hidden = !(CURMOD==='bas' && e.key==='CmMaterial');
+  // ERD 관계 표시
+  const erd=document.getElementById('basErd');
+  erd.innerHTML = `<span class="node p">${e.label} · ${e.key}</span>` +
+    (e.children.length? e.children.map(c=>`<span class="rel">— 1:N →</span><span class="node">${c.label} · ${c.key} [${c.on.map(o=>o[1]).join('+')}]</span>`).join('') : '<span class="rel" style="color:#8891a8">(자식 관계 없음)</span>');
+  document.getElementById('basSearch').value='';
+  basFiltered = e.rows.slice();
+  renderBasMaster(); selectBasRow(0);
+}
+
+function basCell(row, col){
+  const v = row[col.k];
+  if(col.ro) return `<td class="ro ${['CorpId'].includes(col.k)||col===0?'':''}">${v==null?'':v}</td>`;
+  if(col.type==='check') return `<td class="edit" style="text-align:center"><input type="checkbox" ${v?'checked':''} data-k="${col.k}"></td>`;
+  const t = col.type==='num'?'number':'text';
+  const val = v==null?'':v;
+  return `<td class="edit"><input class="txt-in" type="${t}" value="${String(val).replace(/"/g,'&quot;')}" data-k="${col.k}"></td>`;
+}
+
+function renderBasMaster(){
+  const e=curList()[basEntIdx];
+  const head=document.getElementById('basHead');
+  head.innerHTML='<tr>'+e.cols.map(c=>{
+    const cls=(e.pk.includes(c.k)?'keycol ':'')+(c.ro?'':'edit');
+    return `<th class="${cls}">${c.t}</th>`;
+  }).join('')+'</tr>';
+  const body=document.getElementById('basBody'); body.innerHTML='';
+  basFiltered.forEach(row=>{
+    const ri=e.rows.indexOf(row);
+    const tr=document.createElement('tr'); tr.dataset.ri=ri;
+    if(ri===basRowIdx) tr.classList.add('sel');
+    tr.innerHTML=e.cols.map(c=>basCell(row,c)).join('');
+    // 편집 바인딩
+    tr.querySelectorAll('input').forEach(inp=>{
+      inp.addEventListener('click',ev=>ev.stopPropagation());
+      inp.addEventListener('change',ev=>{
+        const k=inp.dataset.k;
+        row[k] = inp.type==='checkbox' ? inp.checked : (inp.type==='number'? parseFloat(inp.value||'0') : inp.value);
+      });
+    });
+    tr.addEventListener('click',()=>{ basRowIdx=ri; document.querySelectorAll('#basBody tr').forEach(x=>x.classList.toggle('sel',+x.dataset.ri===ri)); renderBasChildren(); });
+    body.appendChild(tr);
+  });
+  document.getElementById('basCnt').textContent = basFiltered.length+' 건';
+}
+
+function selectBasRow(ri){ basRowIdx=ri; renderBasChildren();
+  document.querySelectorAll('#basBody tr').forEach(x=>x.classList.toggle('sel',+x.dataset.ri===ri)); }
+
+function renderBasChildren(){
+  const e=curList()[basEntIdx]; const row=e.rows[basRowIdx];
+  const wrap=document.getElementById('basChildren');
+  const keyval = e.pk.map(k=>k+'='+(row?row[k]:'')).join(', ');
+  document.getElementById('basSelInfo').textContent = row? (e.label+' ▸ '+keyval) : '마스터 행을 선택하세요';
+  wrap.innerHTML='';
+  if(!row){ return; }
+  if(!e.children.length){ wrap.innerHTML='<div class="foot">이 기준정보는 하위(자식) 관계가 없습니다.</div>'; return; }
+  e.children.forEach(ch=>{
+    const linked = ch.rows.filter(cr => ch.on.every(([pc,cc]) => String(cr[cc])===String(row[pc])));
+    const joinTxt = ch.on.map(([pc,cc])=> cc+'='+row[pc]).join(' , ');
+    const card=document.createElement('div'); card.className='childcard';
+    const bodyRows = linked.length
+      ? linked.map(cr=>'<tr>'+ch.cols.map(c=>`<td class="${c.type==='num'?'r':'l'}">${cr[c.k]==null?'':cr[c.k]}</td>`).join('')+'</tr>').join('')
+      : `<tr><td colspan="${ch.cols.length}" class="foot" style="padding:10px">연동 데이터 없음</td></tr>`;
+    card.innerHTML =
+      `<div class="cc-head">${ch.label} <span class="ro" style="font-weight:500">(${ch.key})</span>`+
+      `<span class="join">FK 조인: ${joinTxt}</span>`+
+      `<span class="pill" style="margin-left:auto">${linked.length} 건</span></div>`+
+      `<div class="cc-body"><table><thead><tr>${ch.cols.map(c=>`<th>${c.t}</th>`).join('')}</tr></thead>`+
+      `<tbody>${bodyRows}</tbody></table></div>`;
+    wrap.appendChild(card);
+  });
+}
+
+// 조회 / 신규 / 저장 / 엑셀 (기준관리)
+document.getElementById('basSearchBtn').addEventListener('click',()=>{
+  const e=curList()[basEntIdx]; const q=document.getElementById('basSearch').value.trim().toLowerCase();
+  basFiltered = !q ? e.rows.slice() : e.rows.filter(r=>e.cols.some(c=>String(r[c.k]??'').toLowerCase().includes(q)));
+  basRowIdx = basFiltered.length? e.rows.indexOf(basFiltered[0]) : -1;
+  renderBasMaster(); renderBasChildren(); toast('조회 완료 · '+basFiltered.length+'건');
+});
+document.getElementById('basSearch').addEventListener('keydown',ev=>{ if(ev.key==='Enter') document.getElementById('basSearchBtn').click(); });
+document.getElementById('basNew').addEventListener('click',()=>{
+  const e=curList()[basEntIdx]; const row={}; e.cols.forEach(c=>row[c.k]= c.type==='check'?N:(c.type==='num'?0:''));
+  e.rows.push(row); basFiltered=e.rows.slice(); basRowIdx=e.rows.length-1;
+  renderBasMenu(); renderBasMaster(); renderBasChildren(); toast('신규 행 추가 — 값 입력 후 저장');
+});
+/* ---- Supabase(PostgreSQL) 연동 ---- */
+const DBCFG={ url:'', key:'' };
+let sbClient=null;
+function sbSetStat(txt, cls){ const s=document.getElementById('sbStat'); s.className='sbstat'+(cls?(' '+cls):''); s.textContent=txt; }
+document.getElementById('basDbBtn').addEventListener('click',()=>{
+  const p=document.getElementById('dbcfg'); p.hidden=!p.hidden;
+});
+document.getElementById('sbConnect').addEventListener('click',()=>{
+  DBCFG.url=document.getElementById('sbUrl').value.trim();
+  DBCFG.key=document.getElementById('sbKey').value.trim();
+  if(!DBCFG.url || !DBCFG.key){ sbSetStat('URL/Key를 입력하세요','err'); return; }
+  if(!window.supabase){ sbSetStat('supabase-js 로드 실패(오프라인?) — 콘솔 저장으로 동작','err'); return; }
+  try{ sbClient=window.supabase.createClient(DBCFG.url,DBCFG.key); sbSetStat('연결됨 ✔ 저장 시 Supabase upsert','ok'); toast('Supabase 연결 완료'); }
+  catch(err){ sbSetStat('연결 오류: '+(err.message||err),'err'); }
+});
+
+// payload 정리: 값이 undefined 인 컬럼 제거(스키마 컬럼만)
+function cleanRows(e){
+  const keys=e.cols.map(c=>c.k);
+  return e.rows.map(r=>{ const o={}; keys.forEach(k=>{ if(r[k]!==undefined) o[k]=r[k]; }); return o; });
+}
+document.getElementById('basSave').addEventListener('click', async ()=>{
+  const e=curList()[basEntIdx];
+  const rows=cleanRows(e);
+  const conflict=e.pk.join(',');
+  if(sbClient){
+    try{
+      sbSetStat('저장 중…');
+      const { data, error } = await sbClient.from(e.key).upsert(rows,{ onConflict:conflict }).select();
+      if(error) throw error;
+      const n = data? data.length : rows.length;
+      sbSetStat('저장 완료 ✔ '+e.key+' '+n+'건','ok');
+      toast('Supabase 저장 완료 · '+e.key+' '+n+'건');
+      console.log('[Supabase upsert OK]', e.key, data);
+    }catch(err){
+      console.error('[Supabase 저장 오류]', err);
+      sbSetStat('오류: '+(err.message||err),'err');
+      toast('Supabase 저장 오류: '+(err.message||err));
+    }
+  } else {
+    console.log('[오프라인 저장 payload · '+e.key+' · onConflict='+conflict+']', rows);
+    toast('오프라인 저장(콘솔 F12) · '+e.key+' '+rows.length+'건 — ⚙ DB설정에서 Supabase 연결 시 실제 반영');
+  }
+});
+document.getElementById('basExcel').addEventListener('click',()=>{
+  const e=curList()[basEntIdx];
+  const head=e.cols.map(c=>c.t).join(',');
+  const lines=[head].concat(basFiltered.map(r=>e.cols.map(c=>{
+    let v=r[c.k]; if(c.type==='check') v=v?'Y':'N'; v=String(v??'').replace(/"/g,'""');
+    return /[,"]/.test(v)?'"'+v+'"':v;
+  }).join(',')));
+  const blob=new Blob(["﻿"+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=e.key+'.csv';
+  document.body.appendChild(a); a.click(); a.remove(); toast('엑셀(CSV) 다운로드 · '+e.key);
+});
+
+/* ---- v8.1 : 초기 메인(런처) 진입/복귀 ---- */
+function enterModule(v){
+  document.getElementById('landing').style.display='none';
+  switchView(v);
+}
+function showLanding(){
+  document.getElementById('landing').style.display='flex';
+}
+</script>
+
+<!-- ============================================================================
+  [v8.6] 불량 재발방지 · 실시간 모니터링 통합 블록 (2026-09-16)
+  · 격리 네임스페이스(dm-/#dm*)로 기존 앱을 100% 보존하며 추가.
+  · 데이터는 기존 관계형 데이터(ROWS · MODULES.prodsub ProductionResult 등)를 '읽기만' 함(무수정).
+  · 별도 런처 아이콘(🚨) → 다크 불량 현황 대시보드 오버레이 연계.
+  · 불량 유형/임계치/주의보/손실원가는 삼화당 불량 분석 리포트 도메인 내재화.
+============================================================================ -->
+<style id="dm-style">
+  #dmLaunch{position:fixed;right:16px;bottom:44px;z-index:6500;display:flex;align-items:center;gap:8px;
+    background:linear-gradient(#e2461f,#c22f10);color:#fff;border:1px solid #ff6a45;border-radius:30px;
+    padding:11px 18px;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 8px 24px rgba(200,50,20,.45)}
+  #dmLaunch:hover{filter:brightness(1.06)} #dmLaunch .dot{width:8px;height:8px;border-radius:50%;background:#ffe08a;box-shadow:0 0 0 0 rgba(255,224,138,.7);animation:dmpulse 1.6s infinite}
+  @keyframes dmpulse{0%{box-shadow:0 0 0 0 rgba(255,224,138,.7)}70%{box-shadow:0 0 0 8px rgba(255,224,138,0)}100%{box-shadow:0 0 0 0 rgba(255,224,138,0)}}
+  #dmDash{position:fixed;inset:0;z-index:7000;display:none;background:#020617;color:#e2e8f0;
+    font-family:"Malgun Gothic","맑은 고딕",system-ui,sans-serif;overflow:auto}
+  #dmDash.open{display:block}
+  .dm-head{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;background:#0b1222;border-bottom:1px solid #1e293b;padding:12px 20px}
+  .dm-ico{width:40px;height:40px;border-radius:12px;background:rgba(244,63,94,.15);color:#fb7185;display:flex;align-items:center;justify-content:center;font-size:20px;border:1px solid #7f1d2e}
+  .dm-tt{font-size:17px;font-weight:800;color:#f8fafc}
+  .dm-st{font-size:11px;letter-spacing:.14em;color:#64748b;text-transform:uppercase}
+  .dm-live{margin-left:6px;display:inline-flex;align-items:center;gap:6px;background:#052e2b;border:1px solid #14532d;color:#5eead4;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:800}
+  .dm-live .p{width:7px;height:7px;border-radius:50%;background:#34d399;animation:dmpulse 1.6s infinite}
+  .dm-sp{flex:1}
+  .dm-seg{display:flex;gap:2px;background:#0f172a;border:1px solid #1e293b;border-radius:9px;padding:3px}
+  .dm-seg button{border:0;background:transparent;color:#94a3b8;font-weight:800;font-size:12px;padding:6px 12px;border-radius:6px;cursor:pointer}
+  .dm-seg button.on{background:#2563eb;color:#fff}
+  .dm-x{border:1px solid #1e293b;background:#0f172a;color:#cbd5e1;border-radius:9px;padding:8px 12px;font-weight:800;cursor:pointer}
+  .dm-x:hover{background:#1e293b}
+  .dm-alert{display:flex;align-items:center;gap:10px;background:#9f1239;color:#fff;font-weight:800;font-size:13px;padding:9px 20px;animation:dmband 1.3s ease-in-out infinite}
+  @keyframes dmband{0%,100%{opacity:1}50%{opacity:.6}}
+  .dm-body{padding:18px 20px;display:flex;flex-direction:column;gap:16px}
+  .dm-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+  .dm-kpi{background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:14px 16px}
+  .dm-kpi .l{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:800;letter-spacing:.04em;color:#94a3b8;text-transform:uppercase}
+  .dm-kpi .l .b{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px}
+  .dm-kpi .v{margin-top:8px;font-size:24px;font-weight:900;font-variant-numeric:tabular-nums;color:#f8fafc}
+  .dm-kpi .s{margin-top:3px;font-size:11px;font-weight:700}
+  .dm-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  .dm-card{background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:14px}
+  .dm-card h3{margin:0 0 12px;font-size:13px;font-weight:800;color:#e2e8f0;display:flex;align-items:center;gap:7px}
+  .dm-card h3 .cap{margin-left:auto;font-size:10px;font-weight:600;color:#64748b}
+  .dm-row{background:#0b1222;border:1px solid #1e293b;border-radius:11px;padding:10px 12px;margin-bottom:8px}
+  .dm-row .t{display:flex;align-items:center;justify-content:space-between;font-size:13px}
+  .dm-rk{display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;border-radius:5px;background:#1e293b;color:#94a3b8;font-size:11px;font-weight:900;margin-right:7px}
+  .dm-bar{height:8px;border-radius:20px;background:#1e293b;overflow:hidden;margin-top:8px}
+  .dm-bar>i{display:block;height:100%}
+  .dm-mut{color:#94a3b8;font-size:11px} .dm-num{font-family:ui-monospace,monospace}
+  .dm-ok{color:#34d399}.dm-warn{color:#fbbf24}.dm-crit{color:#fb7185}
+  .dm-bg-ok{background:#34d399}.dm-bg-warn{background:#fbbf24}.dm-bg-crit{background:#fb7185}
+  .dm-ring-ok{border-color:#14532d}.dm-ring-warn{border-color:#78350f}.dm-ring-crit{border-color:#7f1d2e}
+  .dm-flowar{text-align:center;color:#334155;margin:-2px 0 6px;font-size:12px}
+  .dm-timeline{display:flex;flex-direction:column;gap:7px;max-height:280px;overflow:auto}
+  .dm-ev{display:flex;align-items:center;gap:10px;background:#0b1222;border:1px solid #1e293b;border-radius:10px;padding:8px 11px;font-size:12px}
+  .dm-ev.fresh{background:#0b2036;border-color:#1d4ed8}
+  .dm-ev .tm{font-family:ui-monospace,monospace;font-weight:800;color:#94a3b8}
+  .dm-tag{border-radius:6px;padding:2px 7px;font-size:11px;font-weight:800;white-space:nowrap}
+  .dm-tag.mc{background:#1e293b;color:#7dd3fc}
+  .dm-tag.df{background:#3f1220;color:#fb7185;border:1px solid #7f1d2e}
+  .dm-tag.op{background:#3f1220;color:#fb7185;border:1px solid #7f1d2e}
+  .dm-tag.wt{background:#3a2a08;color:#fbbf24;border:1px solid #78350f}
+  .dm-tag.rs{background:#052e2b;color:#5eead4;border:1px solid #14532d}
+  .dm-ev .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dm-pareto-wrap{position:relative}
+  .dm-reg{background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:14px}
+  .dm-reg .fld{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+  .dm-reg label{display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:800;color:#94a3b8}
+  .dm-reg select,.dm-reg input{background:#0b1222;border:1px solid #334155;border-radius:8px;color:#e2e8f0;padding:7px 9px;font-size:12px;min-width:120px}
+  .dm-reg .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .dm-chip{display:inline-flex;align-items:center;gap:5px;background:#0b1222;border:1px solid #334155;border-radius:20px;padding:5px 11px;font-size:11px;font-weight:700;color:#cbd5e1;cursor:pointer}
+  .dm-chip input{accent-color:#f43f5e}
+  .dm-chip.sel{border-color:#f43f5e;color:#fecdd3;background:#2a1017}
+  .dm-btn{border:1px solid #1d4ed8;background:linear-gradient(#2563eb,#1d4ed8);color:#fff;font-weight:800;border-radius:10px;padding:9px 18px;font-size:13px;cursor:pointer}
+  .dm-btn:hover{filter:brightness(1.07)}
+  .dm-btn.warn{border-color:#b45309;background:linear-gradient(#f59e0b,#d97706);color:#1e293b}
+  .dm-lock{margin-top:10px;display:none;align-items:center;gap:10px;background:#1a1207;border:1px solid #78350f;border-radius:11px;padding:10px 13px;color:#fbbf24;font-weight:800;font-size:12px}
+  .dm-lock.on{display:flex}
+  .dm-lock input{background:#0b1222;border:1px solid #78350f;border-radius:8px;color:#fde68a;padding:6px 9px}
+  @media(max-width:1100px){.dm-kpis{grid-template-columns:repeat(2,1fr)}.dm-cols{grid-template-columns:1fr}}
+</style>
+
+<div id="dmLaunch" title="불량 현황 대시보드 열기"><span class="dot"></span>🚨 불량 모니터링</div>
+
+<div id="dmDash" aria-hidden="true">
+  <div class="dm-head">
+    <div class="dm-ico">🚨</div>
+    <div>
+      <div class="dm-tt">실시간 불량 종합 모니터링</div>
+      <div class="dm-st">Defect Monitoring · 업체 · 공정 · 유형 · POP Event Stream</div>
+    </div>
+    <span class="dm-live"><span class="p"></span>LIVE</span>
+    <div class="dm-sp"></div>
+    <div class="dm-seg" id="dmScope"><button data-s="today">금일</button><button data-s="all" class="on">전체 누적</button></div>
+    <button class="dm-x" id="dmClose">✕ 닫기</button>
+  </div>
+  <div id="dmAlert" class="dm-alert" style="display:none"></div>
+  <div class="dm-body">
+    <div class="dm-kpis" id="dmKpis"></div>
+    <div class="dm-cols">
+      <div class="dm-card"><h3>🏢 업체별(Vendor) 현황<span class="cap">불량수량·점유율 랭킹</span></h3><div id="dmVendor"></div></div>
+      <div class="dm-card"><h3>🏭 공정별(Process) 현황<span class="cap">재단→인쇄→톰슨→접착→포장 · 임계치</span></h3><div id="dmProcess"></div></div>
+      <div class="dm-card"><h3>⚠ 유형별(Defect) 파레토 Top5<span class="cap">발생빈도·누적%</span></h3><div id="dmPareto" class="dm-pareto-wrap"></div></div>
+    </div>
+    <div class="dm-reg">
+      <h3 style="margin:0 0 10px;font-size:13px;font-weight:800;color:#e2e8f0">➕ 현장 불량 등록 (POP Event) · 세부원인·재발방지·인터록</h3>
+      <div class="fld">
+        <label>작업지시<select id="dmWo"></select></label>
+        <label>공정<select id="dmProc"></select></label>
+        <label>불량유형<select id="dmType"></select></label>
+        <label>설비 호기<input id="dmMac" placeholder="예: 인쇄 2호기" style="min-width:130px"></label>
+        <label>불량수량<input id="dmQty" type="number" min="0" value="0" style="min-width:90px"></label>
+        <label>담당자<input id="dmOp" value="홍기사" style="min-width:90px"></label>
+        <button class="dm-btn" id="dmAdd">불량 등록</button>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:26px;flex-wrap:wrap">
+        <div><div class="dm-mut" style="font-weight:800;margin-bottom:4px">세부 원인</div>
+          <div class="chips" id="dmCause"></div></div>
+        <div><div class="dm-mut" style="font-weight:800;margin-bottom:4px">재발방지 조치</div>
+          <div class="chips" id="dmAction"></div></div>
+      </div>
+      <div class="dm-lock" id="dmLock">
+        ⛔ 공정 임계치 초과 — 인터록 작동. 품질 승인(Quality Sign-off) 없이는 다음 공정 이월 불가.
+        <input id="dmSign" placeholder="승인자(성명) 입력 후 등록">
+      </div>
+    </div>
+    <div class="dm-card"><h3>📡 실시간 불량 발생 이벤트 (POP Event Stream)<span class="cap">현장 등록 시 즉시 갱신</span></h3>
+      <div class="dm-timeline" id="dmStream"></div></div>
+  </div>
+</div>
+
+<script>
+/* ===== [v8.6] 불량 모니터링 — 격리 모듈(기존 전역 ROWS/MODULES 읽기 전용) ===== */
+(function(){
+  const $=s=>document.querySelector(s);
+  const won=n=>'₩'+Math.round(n||0).toLocaleString();
+  const nf=n=>Number(n||0).toLocaleString();
+  const FLOW=['재단','인쇄','톰슨','접착','포장'];
+  const THRESH={'재단':2.0,'인쇄':1.5,'톰슨':2.0,'접착':0.8,'포장':0.5,'코팅':1.5,'종이':2.0};
+  const UNIT_COST={'재단':35,'인쇄':45,'코팅':60,'톰슨':70,'접착':90,'포장':110,'종이':30};
+  // ① 공정별 표준 불량유형 (P62 계열)
+  const TYPES={
+    '인쇄':[['P62-PR-REG','견본불일치(색상편차)'],['P62-PR-PIN','핀틀어짐'],['P62-PR-SPOT','오염/스팟(Hickey)'],['P62-PR-INK','잉크번짐/건조불량']],
+    '톰슨':[['P62-TH-CUT','칼선불량(밀림/오차)'],['P62-TH-CRK','터짐/깨짐(모서리)'],['P62-TH-STR','탈지/시야기 불량']],
+    '재단':[['P62-TH-CUT','칼선불량(밀림/오차)'],['P62-TH-CRK','터짐/깨짐(모서리)']],
+    '접착':[['P62-GL-GLU','접착불량(벌어짐)'],['P62-GL-SKW','단차(Skew)'],['P62-GL-SMR','풀묻음']],
+    '포장':[['P62-PK-MIX','이종혼입'],['P62-PK-SHT','수량부족'],['P62-PK-BAR','바코드/DataMatrix 리딩에러']],
+    '코팅':[['P62-CO-COAT','코팅불량(들뜸/기포)'],['P62-CO-GOLD','금박/형압 불량']],
+    '종이':[['P62-RM-GRM','평량미달'],['P62-RM-SCR','스크래치']],
+  };
+  const labelOf=code=>{for(const p in TYPES){const f=TYPES[p].find(x=>x[0]===code);if(f)return f[1];}return code;};
+  const CAUSES=['원자재','설비','작업자','환경'];
+  const ACTIONS=['설비 점검/교정','칼선·목형 교체','작업표준 재교육','원자재 LOT 격리','별색 건조조건 조정','샘플 재승인'];
+  // ② 위험 발주처 · 주의보 프리셋
+  const PREVENT={
+    '한미약품':['태그/RFID 칩죽음·리딩불량 주의 — 인코딩 설비/이송블럭 점검','톰슨 모서리 터짐·칼선 밀림 주의'],
+    '중외제약':['설명서 접지방향/규격 확인','인쇄 별색(DIC 177) 건조 확인 · 색상편차 대조'],
+    '엔코스':['접착 벌어짐/풀 삐짐 주의 — 접착 압력·풀량 확인'],
+    '코스맥스':['재단·규격/도면 사양 불일치 주의 — 초도 샘플 승인 강화'],
+    '경동제약':['재단/톰슨(선대패드) 칼선 관리 주의'],
+  };
+  const PROC_PREVENT={'인쇄':'DIC/별색 건조 확인 · 견본 색상편차 대조','톰슨':'목형/칼선 압력·오시 표준화(재단/터짐 최다)','접착':'접착 임계치 0.8% — 벌어짐/단차 초기검출'};
+  // 발주처 약칭 → 표준명
+  const VMAP={'중외제':'중외제약','중외양':'중외제약','중외재':'중외제약','한미':'한미약품','코스맥':'코스맥스','엔코스':'엔코스','경동제':'경동제약','21그램':'21그램','펫닥':'펫닥'};
+  const canon=v=>VMAP[v]||v||'미지정';
+
+  // 작업지시 no → {vendor,name,total}
+  const woMap={};
+  try{ (typeof ROWS!=='undefined'?ROWS:[]).forEach(r=>{ woMap[r.no]={vendor:canon(r.vendor),name:r.name,total:r.total}; }); }catch(e){}
+  function woMeta(no){ return woMap[no]||{vendor:'미지정',name:no,total:0}; }
+  function prodEntity(){ try{ return (MODULES.prodsub||[]).find(e=>e.key==='ProductionResult'); }catch(e){ return null; } }
+
+  // 공정별 생산량(기존 데이터 기반): ProductionResult 의 Good+Fault 합
+  function producedByProc(){
+    const m={}; const e=prodEntity();
+    if(e) e.rows.forEach(r=>{ m[r.ProcessName]=(m[r.ProcessName]||0)+(+r.GoodQty||0)+(+r.FaultQty||0); });
+    return m;
+  }
+  const daysAgo=n=>{const d=new Date();d.setDate(d.getDate()-n);return d;};
+  function mkEv(id,dt,no,proc,type,qty,status,mac,op,cause,action){
+    const meta=woMeta(no);
+    return {id,ts:dt.toISOString(),woNo:no,vendor:meta.vendor,productName:meta.name,
+      proc,machineId:mac||'',defectType:type,defectLabel:labelOf(type),qty:+qty||0,
+      lossCost:Math.round((+qty||0)*(UNIT_COST[proc]||55)),status:status||'OPEN',
+      operator:op||'',cause:cause||'',action:action||''};
+  }
+  // 기존 데이터(ProductionResult)에서 이벤트 파생 + 리포트 도메인 시드
+  function seedEvents(){
+    const out=[]; const e=prodEntity();
+    if(e){ e.rows.forEach((r,i)=>{ if((+r.FaultQty||0)>0){
+      const t=(TYPES[r.ProcessName]||TYPES['인쇄'])[0][0];
+      const dt=new Date((r.WorkDate||'2026-09-06')+'T'+(10+i)+':10:00');
+      out.push(mkEv('PR-'+i,dt,r.OrderNo,r.ProcessName,t,r.FaultQty,'OPEN','',r.Worker,'',''));
+    }});}
+    // 리포트 파생 대표 시드(업체·유형 커버리지)
+    const S=[
+      [0,9,'20260814-0012','톰슨','P62-TH-CRK',320,'OPEN','톰슨 1호','최기사'],
+      [0,10,'20260814-0012','포장','P62-PK-BAR',140,'WATCH','포장 1호','박포장'],
+      [0,11,'20260818-0009','접착','P62-GL-GLU',210,'OPEN','접착 1호','김접착'],
+      [1,13,'20260819-0007','인쇄','P62-PR-REG',180,'RESOLVED','인쇄 2호','홍기사'],
+      [1,14,'20260811-0012','톰슨','P62-TH-CUT',260,'OPEN','톰슨 1호','최기사'],
+      [2,9,'20260820-0002','톰슨','P62-TH-CUT',150,'RESOLVED','톰슨 1호','최기사'],
+      [2,15,'20260819-0008','인쇄','P62-PR-SPOT',95,'WATCH','인쇄 1호','홍기사'],
+      [3,10,'20260819-0005','포장','P62-PK-MIX',60,'RESOLVED','포장 1호','박포장'],
+      [4,11,'20260819-0006','접착','P62-GL-SKW',75,'WATCH','접착 1호','김접착'],
+      [5,14,'20260814-0013','인쇄','P62-PR-INK',110,'RESOLVED','인쇄 2호','홍기사'],
+    ];
+    S.forEach((s,i)=>{ const dt=daysAgo(s[0]); dt.setHours(s[1],(i%6)*10,0,0);
+      out.push(mkEv('SD-'+i,dt,s[2],s[3],s[4],s[5],s[6],s[7],s[8],'','')); });
+    return out;
+  }
+  let EVENTS=seedEvents();
+  let scope='all', paused=false;
+  const isToday=ts=>{const d=new Date(ts),n=new Date();return d.toDateString()===n.toDateString();};
+  const scoped=()=>scope==='today'?EVENTS.filter(e=>isToday(e.ts)):EVENTS;
+
+  /* ===== 집계 ===== */
+  function level(proc,rate){const t=THRESH[proc]||1.5;return rate>=t?'crit':rate>=t*0.8?'warn':'ok';}
+  function vendorAgg(evs){const tot=evs.reduce((a,e)=>a+e.qty,0)||1;const m={};
+    evs.forEach(e=>{const s=m[e.vendor]||(m[e.vendor]={vendor:e.vendor,cnt:0,qty:0,loss:0});s.cnt++;s.qty+=e.qty;s.loss+=e.lossCost;});
+    return Object.values(m).map(s=>({...s,share:s.qty/tot*100})).sort((a,b)=>b.qty-a.qty);}
+  function procAgg(evs){const base=producedByProc();const m={};
+    evs.forEach(e=>{const s=m[e.proc]||(m[e.proc]={proc:e.proc,cnt:0,qty:0});s.cnt++;s.qty+=e.qty;});
+    const codes=[...new Set([...FLOW,...Object.keys(m)])].filter(p=>FLOW.includes(p)||m[p]);
+    return FLOW.filter(p=>codes.includes(p)).concat(codes.filter(p=>!FLOW.includes(p))).map(p=>{
+      const s=m[p]||{qty:0,cnt:0};const b=base[p]||Math.max(s.qty*50,20000);
+      const rate=s.qty/b*100;return {proc:p,qty:s.qty,cnt:s.cnt,rate,thr:THRESH[p]||1.5,lv:level(p,rate),base:b};});}
+  function paretoAgg(evs){const tot=evs.reduce((a,e)=>a+e.qty,0)||1;const m={};
+    evs.forEach(e=>{const s=m[e.defectLabel]||(m[e.defectLabel]={label:e.defectLabel,qty:0});s.qty+=e.qty;});
+    const arr=Object.values(m).sort((a,b)=>b.qty-a.qty);const top=arr.slice(0,5);
+    const etc=arr.slice(5).reduce((a,x)=>a+x.qty,0);if(etc>0)top.push({label:'기타',qty:etc});
+    let cum=0;return top.map(x=>{const pct=x.qty/tot*100;cum+=pct;return {...x,pct,cum};});}
+
+  /* ===== 렌더 ===== */
+  function kpi(b,l,v,s){return `<div class="dm-kpi"><div class="l"><span class="b" style="background:${b.bg};color:${b.fg}">${b.i}</span>${l}</div><div class="v">${v}</div>${s?('<div class="s">'+s+'</div>'):''}</div>`;}
+  function render(){
+    const evs=scoped();
+    const todayEvs=EVENTS.filter(e=>isToday(e.ts));
+    const producedToday=(function(){const b=producedByProc();let t=0;for(const k in b)t+=b[k];return t||300000;})();
+    const defToday=todayEvs.reduce((a,e)=>a+e.qty,0);
+    const lossToday=todayEvs.reduce((a,e)=>a+e.lossCost,0);
+    const rate=producedToday?defToday/producedToday*100:0;
+    const wk=n=>EVENTS.filter(e=>{const d=Math.floor((Date.now()-new Date(e.ts))/864e5);return n==='t'?d<=6:(d>=7&&d<=13);}).length;
+    const tw=wk('t'),lw=wk('l');const wow=lw?((tw-lw)/lw*100):null;
+    const crit=procAgg(todayEvs).filter(p=>p.lv==='crit');
+    $('#dmKpis').innerHTML=
+      kpi({i:'📦',bg:'#0b2540',fg:'#7dd3fc'},'금일 총 생산량',nf(producedToday)+' ea','')+
+      kpi({i:'⚠',bg:'#3f1220',fg:'#fb7185'},'금일 총 불량',nf(defToday)+' ea','')+
+      kpi({i:'📉',bg:'#3a2a08',fg:'#fbbf24'},'종합 불량률',rate.toFixed(2)+' %', wow==null?'':('<span class="'+(wow>0?'dm-crit':'dm-ok')+'">'+(wow>0?'▲':'▼')+' 전주比 '+(wow>0?'+':'')+wow.toFixed(0)+'%</span>'))+
+      kpi({i:'🚨',bg:'#3f1220',fg:'#fb7185'},'위험 경보(임계 초과)',crit.length+' 건', crit.length?('<span class="dm-crit">'+crit.map(c=>c.proc).join(', ')+'</span>'):'')+
+      kpi({i:'💸',bg:'#052e2b',fg:'#5eead4'},'금일 환산 손실',won(lossToday),'');
+    // 위험 경보 스트립
+    const al=$('#dmAlert');
+    if(crit.length){al.style.display='flex';al.innerHTML='⛔ 임계치 초과 공정 '+crit.length+'건 — '+crit.map(c=>c.proc+'('+c.rate.toFixed(2)+'%>'+c.thr+'%)').join(' · ');}
+    else al.style.display='none';
+    // 업체별
+    const vs=vendorAgg(evs);
+    $('#dmVendor').innerHTML=vs.length?vs.map((v,i)=>`<div class="dm-row"><div class="t"><span><span class="dm-rk">${i+1}</span><b>${v.vendor}</b></span><span class="dm-num dm-crit">${nf(v.qty)} ea</span></div><div class="dm-bar"><i class="dm-bg-crit" style="width:${Math.min(100,v.share)}%"></i></div><div class="dm-mut" style="margin-top:5px;text-align:right">${v.share.toFixed(1)}% · ${v.cnt}건 · ${won(v.loss)}</div></div>`).join(''):'<div class="dm-mut">데이터 없음</div>';
+    // 공정별
+    const ps=procAgg(evs);
+    $('#dmProcess').innerHTML=ps.map((p,i)=>`<div class="dm-row dm-ring-${p.lv}"><div class="t"><b>${p.proc}</b><span class="dm-num dm-${p.lv}">${p.rate.toFixed(2)}% <span class="dm-mut">/ ${p.thr}%</span></span></div><div class="dm-bar"><i class="dm-bg-${p.lv}" style="width:${Math.min(100,p.rate/(p.thr||1)*100)}%"></i></div><div class="dm-mut" style="margin-top:5px;display:flex;justify-content:space-between"><span>불량 ${nf(p.qty)} ea · ${p.cnt}건</span><span>${p.lv==='crit'?'⛔ 임계 초과':p.lv==='warn'?'⚠ 주의':'정상'}</span></div></div>`+(i<ps.length-1?'<div class="dm-flowar">▼</div>':'')).join('');
+    // 파레토
+    const pa=paretoAgg(evs);const mx=Math.max(...pa.map(x=>x.qty),1);
+    const pts=pa.map((x,i)=>`${(i+0.5)*(100/pa.length)},${100-x.cum}`).join(' ');
+    $('#dmPareto').innerHTML=(pa.length?pa.map((x,i)=>`<div class="dm-row" style="padding:8px 11px"><div class="t"><span>${i+1}. ${x.label}</span><span class="dm-num dm-mut">${nf(x.qty)} · <span style="color:#7dd3fc">누적 ${x.cum.toFixed(0)}%</span></span></div><div class="dm-bar"><i class="${i===0?'dm-bg-crit':i===1?'dm-bg-crit':'dm-bg-warn'}" style="width:${x.qty/mx*100}%;opacity:${i<2?1:.8}"></i></div></div>`).join(''):'<div class="dm-mut">데이터 없음</div>')+
+      (pa.length?`<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="height:60px;width:100%;margin-top:8px;background:#0b1222;border:1px solid #1e293b;border-radius:8px"><line x1="0" y1="20" x2="100" y2="20" stroke="#f59e0b" stroke-width=".5" stroke-dasharray="2 2" opacity=".6"/><polyline points="${pts}" fill="none" stroke="#38bdf8" stroke-width="1.2"/>${pa.map((x,i)=>`<circle cx="${(i+0.5)*(100/pa.length)}" cy="${100-x.cum}" r="1.4" fill="#38bdf8"/>`).join('')}</svg><div class="dm-mut" style="text-align:right;margin-top:2px">— 누적% 곡선 · ┈ 80% 파레토선</div>`:'');
+    // 타임라인
+    const st=[...evs].sort((a,b)=>new Date(b.ts)-new Date(a.ts)).slice(0,14);
+    $('#dmStream').innerHTML=st.length?st.map((e,i)=>{const d=new Date(e.ts);const hm=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
+      const stt=e.status==='OPEN'?['op','발생']:e.status==='WATCH'?['wt','주의관찰']:['rs','조치완료'];
+      return `<div class="dm-ev ${i===0?'fresh':''}"><span class="tm">${hm}</span><span class="dm-tag mc">${e.machineId||e.proc}</span><span class="nm"><span class="dm-mut">${e.vendor}</span> ${e.productName}</span><span class="dm-tag df">${e.defectLabel} ${nf(e.qty)}</span><span class="dm-mut dm-num">${won(e.lossCost)}</span><span class="dm-tag mc">👤${e.operator||'-'}</span><span class="dm-tag ${stt[0]}">${stt[1]}</span></div>`;}).join(''):'<div class="dm-mut">등록된 불량 이벤트가 없습니다.</div>';
+  }
+
+  /* ===== 불량 등록 폼(POP) + 인터록 ===== */
+  function fillWo(){const sel=$('#dmWo');sel.innerHTML='';(typeof ROWS!=='undefined'?ROWS:[]).forEach(r=>{const o=document.createElement('option');o.value=r.no;o.textContent=r.no+' · '+canon(r.vendor)+' · '+r.name.slice(0,14);sel.appendChild(o);});}
+  function fillProc(){const sel=$('#dmProc');sel.innerHTML='';FLOW.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;sel.appendChild(o);});sel.value='인쇄';}
+  function fillType(){const sel=$('#dmType');const p=$('#dmProc').value;sel.innerHTML='';(TYPES[p]||[]).forEach(([c,l])=>{const o=document.createElement('option');o.value=c;o.textContent=l;sel.appendChild(o);});}
+  function fillChips(){
+    $('#dmCause').innerHTML=CAUSES.map((c,i)=>`<label class="dm-chip"><input type="radio" name="dmc" value="${c}" ${i===0?'checked':''}>${c}</label>`).join('');
+    $('#dmAction').innerHTML=ACTIONS.map(a=>`<label class="dm-chip"><input type="checkbox" value="${a}">${a}</label>`).join('');
+    document.querySelectorAll('#dmCause .dm-chip,#dmAction .dm-chip').forEach(ch=>{const i=ch.querySelector('input');const sync=()=>ch.classList.toggle('sel',i.checked);i.addEventListener('change',()=>{if(i.type==='radio')document.querySelectorAll('#dmCause .dm-chip').forEach(x=>x.classList.remove('sel'));sync();});sync();});
+  }
+  // 인터록 판정: 이 등록으로 공정 금일 불량률이 임계치를 초과하면 승인 필요
+  function checkInterlock(){
+    const p=$('#dmProc').value,q=+$('#dmQty').value||0;
+    const base=(producedByProc()[p])||Math.max(q*50,20000);
+    const cur=EVENTS.filter(e=>e.proc===p&&isToday(e.ts)).reduce((a,e)=>a+e.qty,0);
+    const rate=(cur+q)/base*100;const over=rate>=(THRESH[p]||1.5);
+    $('#dmLock').classList.toggle('on',over&&q>0);
+    return {over,rate};
+  }
+  ['dmProc','dmQty'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{if(id==='dmProc')fillType();checkInterlock();}));
+  $('#dmQty').addEventListener('input',checkInterlock);
+  $('#dmAdd').addEventListener('click',()=>{
+    const no=$('#dmWo').value,p=$('#dmProc').value,t=$('#dmType').value,q=+$('#dmQty').value||0;
+    if(q<=0){toast&&toast('불량 수량을 입력하세요');return;}
+    const il=checkInterlock();
+    let status='OPEN',sign='';
+    if(il.over){ sign=$('#dmSign').value.trim();
+      if(!sign){ toast&&toast('⛔ 인터록: 임계치 초과 — 품질 승인자 입력 없이는 이월 불가'); $('#dmSign').focus(); return; }
+      status='WATCH';
+    }
+    const cause=(document.querySelector('#dmCause input:checked')||{}).value||'';
+    const acts=[...document.querySelectorAll('#dmAction input:checked')].map(x=>x.value).join(', ');
+    const action=(acts||'')+(sign?(' · 품질승인: '+sign):'');
+    const ev=mkEv('LV-'+Date.now(),new Date(),no,p,t,q,status,$('#dmMac').value.trim(),$('#dmOp').value.trim(),cause,action);
+    EVENTS.unshift(ev);
+    $('#dmQty').value=0;$('#dmSign').value='';checkInterlock();
+    render();
+    toast&&toast('불량 등록 완료 · '+p+' '+labelOf(t)+' '+q+'ea'+(il.over?(' (인터록 승인: '+sign+')'):''));
+  });
+
+  /* ===== 열기/닫기/스코프 + 작업지시 선택 시 주의보 ===== */
+  $('#dmWo').addEventListener('change',()=>{
+    const m=woMeta($('#dmWo').value);const p=$('#dmProc').value;
+    const w=(PREVENT[m.vendor]||[]).concat(PROC_PREVENT[p]?[PROC_PREVENT[p]]:[]);
+    if(w.length&&typeof toast==='function') toast('★ 과거 주요 불량 주의보 — '+w[0]);
+  });
+  document.querySelectorAll('#dmScope button').forEach(b=>b.addEventListener('click',()=>{
+    scope=b.dataset.s;document.querySelectorAll('#dmScope button').forEach(x=>x.classList.toggle('on',x===b));render();}));
+  function open(){$('#dmDash').classList.add('open');$('#dmDash').setAttribute('aria-hidden','false');fillWo();fillProc();fillType();fillChips();checkInterlock();render();}
+  function close(){$('#dmDash').classList.remove('open');$('#dmDash').setAttribute('aria-hidden','true');}
+  $('#dmLaunch').addEventListener('click',open);
+  $('#dmClose').addEventListener('click',close);
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#dmDash').classList.contains('open'))close();});
+})();
+</script>
+
+</body>
+</html>
